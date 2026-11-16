@@ -38,7 +38,9 @@ export function StatementView({ statement: s, locale, t }: { statement: SharedSt
           {money(total.net, true)}
         </T>
         <T color={color.inkSoft}>
-          {total.due > 0.5
+          {s.property.kind === 'partnership'
+            ? t('Votre part du résultat sur la période.', 'Your share of the result over the period.')
+            : total.due > 0.5
             ? t(`Reste à vous verser : ${money(total.due)}`, `Still to be paid to you: ${money(total.due)}`)
             : total.due < -0.5
               ? t(`Reste à verser de votre part : ${money(-total.due)}`, `Still due from you: ${money(-total.due)}`)

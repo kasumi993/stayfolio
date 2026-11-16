@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-import { balances, monthStatement, occupancy, propertyStatement, series, statement } from '../src/core/calc';
+import { balances, monthStatement, occupancy, payback, propertyStatement, series, statement } from '../src/core/calc';
 import { addMonths, dateInMonth, diffDays, excelSerialToISO, monthRange } from '../src/core/dates';
 import { planImport } from '../src/core/importWorkbook';
 import { evalAmount, formatMoney, formatNumber } from '../src/core/money';
@@ -86,6 +86,28 @@ describe('calc', () => {
     expect(occupancy(d, null, ['2026-03', '2026-04']).available).toBe(61);
   });
 
+  it('tells how far a property is from paying back its set-up', () => {
+    const d = managed();
+    d.bookings = [];
+    d.expenses = [];
+    const b = { ...managed().bookings[0], commission_rate: 0 };
+    const x = { ...managed().expenses[0] };
+    // January: 900 000 of set-up. February to April: +100 000 a month. May is in progress.
+    d.expenses.push({ ...x, id: 'setup', date: '2026-01-05', month: '2026-01', amount: 900000 });
+    ['02', '03', '04'].forEach((m) => d.bookings.push({ ...b, id: 'b' + m, check_in: `2026-${m}-03`, check_out: `2026-${m}-05`, amount: 100000 }));
+    d.expenses.push({ ...x, id: 'may', date: '2026-05-01', month: '2026-05', amount: 40000 });
+    const p = payback(d, 'p', '2026-05')!;
+    expect(p.invested).toBe(900000);
+    expect(p.cumulative).toBe(-640000);
+    expect(p.paceMonths).toBe(3);
+    expect(p.pace).toBe(100000);
+    expect(p.monthsLeft).toBe(6);
+    // A property that only breaks even never gets there.
+    d.bookings.forEach((row) => (row.amount = 0));
+    expect(payback(d, 'p', '2026-05')!.monthsLeft).toBeNull();
+    expect(payback(emptyData(), 'p', '2026-05')).toBeNull();
+  });
+
   it('applies rule changes from their effective month only', () => {
     const d = managed();
     d.rules.push({ id: 'r2', property_id: 'p', effective_from: '2026-04', commission_rate: 0.15, shares: d.rules[0].shares });
@@ -146,10 +168,12 @@ describe.skipIf(!sample || !existsSync(sample))('import of the real workbook', (
     expect(plan.bookings).toHaveLength(41);
     expect(plan.expenses).toHaveLength(85);
     expect(plan.parties.map((p) => p.name)).toEqual(['Khady', 'Mareme']);
-    expect(plan.rule.shares.map((s) => [s.revenue, s.expense])).toEqual([[0.6, 0.5], [0.4, 0.5]]);
+    // The profit is shared 60/40; the workbook's 50/50 only tracked who funds what.
+    expect(plan.rule.shares.map((s) => [s.revenue, s.expense])).toEqual([[0.6, 0.6], [0.4, 0.4]]);
     expect(plan.transfers.reduce((t, x) => t + x.amount, 0)).toBe(1208000);
     expect(plan.recurring[0]).toMatchObject({ category: 'rent', amount: 450000, start_month: '2026-12' });
-    expect(plan.warnings).toEqual([]);
+    expect(plan.warnings).toHaveLength(1);
+    expect(plan.warnings[0]).toContain('60/40');
   });
 
   it('matches the Excel dashboard month by month', () => {
@@ -173,8 +197,14 @@ describe.skipIf(!sample || !existsSync(sample))('import of the real workbook', (
     expect(monthStatement(d, plan.property.id, '2026-05').rentCovered).toBe(true);
     const pts = series(d, plan.property.id, monthRange('2026-04', '2026-11'));
     expect(pts[7].cumulative).toBeCloseTo(-1825683.757, 2);
-    // Each partner bears half of the expenses, as in columns J and K.
+    // The result is shared 60/40, and each partner's account adds up.
     const s = propertyStatement(d, plan.property, () => true);
-    expect(Math.round(s.parties[1].expenses)).toBe(3051727);
+    expect(s.parties.map((l) => Math.round(l.net))).toEqual([-1095410, -730274]);
+    const mareme = balances(d, plan.property.id).find((b) => !b.party.is_me)!;
+    expect(Math.round(mareme.balance)).toBe(1208000 - 730274);
+    const p = payback(d, plan.property.id, '2026-11')!;
+    expect(Math.round(p.cumulative)).toBe(-1825684);
+    expect(p.paceMonths).toBe(6);
+    expect(p.monthsLeft).toBe(52);
   });
 });

@@ -9,12 +9,12 @@ import { View } from 'react-native';
 import { type Statement, base, monthStatement, nightsOf, occupancy, ruleFor, series } from '@/core/calc';
 import { addMonths, currentMonth, monthRange } from '@/core/dates';
 import { type Insight, insightsFor } from '@/core/insights';
-import { formatMoney, formatPercent } from '@/core/money';
+import { formatMoney } from '@/core/money';
 import type { Booking, Expense, Property } from '@/core/types';
 import { useData, useStore } from '@/data/store';
 import { useMoney, useSelection } from '@/features/hooks';
 import { PageHeader } from '@/features/PageHeader';
-import { type Translate, categoryLabel, dayLabel, monthLabel, monthShort, useLocale, useT } from '@/i18n';
+import { type Translate, categoryLabel, dayLabel, monthLabel, monthShort, shareLabel, useLocale, useT } from '@/i18n';
 import { Bars, Breakdown, Legend, Progress, Ring, Tile, Tiles } from '@/ui/charts';
 import { Button, Dot, Empty, Notice, Row, SectionTitle, Tag, TextLink } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
@@ -195,6 +195,7 @@ function Summary({ s, property }: { s: Statement; property: Property | null }) {
 /** Who gets what this month, on one property. */
 function Split({ s, property }: { s: Statement; property: Property }) {
   const t = useT();
+  const locale = useLocale();
   const money = useMoney();
   const data = useData();
   const month = useStore((st) => st.month);
@@ -213,9 +214,7 @@ function Split({ s, property }: { s: Statement; property: Property }) {
         <Block>
           {lines.map((line) => {
             const share = rule.shares.find((x) => x.party_id === line.party.id);
-            const parts: string[] = [];
-            if (share?.revenue) parts.push(t(`${formatPercent(share.revenue)} des revenus`, `${formatPercent(share.revenue)} of income`));
-            if (share?.expense) parts.push(t(`${formatPercent(share.expense)} des dépenses`, `${formatPercent(share.expense)} of expenses`));
+            const parts = [shareLabel(share, locale)].filter(Boolean);
             if (line.party.is_me && line.commission) parts.push(t(`commission ${money(line.commission)}`, `commission ${money(line.commission)}`));
             return <Row key={line.party.id} title={line.party.is_me ? t('Moi', 'Me') : line.party.name} subtitle={parts.join(', ') || undefined} value={money(line.net, { sign: true })} valueColor={line.net < 0 ? color.negative : color.ink} />;
           })}

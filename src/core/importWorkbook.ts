@@ -104,22 +104,27 @@ export function planImport(bytes: Uint8Array, fileName = ''): ImportPlan {
   const created = now();
   const me: Party = { id: newId(), property_id: propertyId, name: nameA, is_me: true };
   const parties: Party[] = [me];
-  const shares = [
-    {
-      party_id: me.id,
-      revenue: num(setupValue('revenue split a')) ?? 1,
-      expense: num(setupValue('expense split a')) ?? 1,
-    },
-  ];
+  // The workbook's "Revenue Split" is how the partners share the profit, so it
+  // applies to income and expenses alike. Its "Expense Split" only tracked how
+  // much each partner was expected to put in; what they did put in is imported
+  // below as payments.
+  const splitA = num(setupValue('revenue split a')) ?? 1;
+  const splitB = num(setupValue('revenue split b')) ?? 0;
+  const fundingA = num(setupValue('expense split a'));
+  const shares = [{ party_id: me.id, revenue: splitA, expense: splitA }];
   let partner: Party | null = null;
   if (nameB) {
     partner = { id: newId(), property_id: propertyId, name: nameB, is_me: false };
     parties.push(partner);
-    shares.push({
-      party_id: partner.id,
-      revenue: num(setupValue('revenue split b')) ?? 0,
-      expense: num(setupValue('expense split b')) ?? 0,
-    });
+    shares.push({ party_id: partner.id, revenue: splitB, expense: splitB });
+    if (fundingA !== null && Math.abs(fundingA - splitA) > 0.001) {
+      const pct = (v: number) => `${Math.round(v * 100)}`;
+      warnings.push(
+        `Le résultat (revenus moins dépenses) est partagé à ${pct(splitA)}/${pct(splitB)}, comme le « Revenue Split » du classeur. ` +
+          `Son « Expense Split » de ${pct(fundingA)}/${pct(1 - fundingA)} n’est pas repris : ce que ${nameB} a versé est importé comme apports. ` +
+          'La règle se change ensuite dans la fiche du bien.',
+      );
+    }
   }
 
   const property: Property = {

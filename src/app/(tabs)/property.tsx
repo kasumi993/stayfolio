@@ -7,14 +7,16 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
-import { balances, base, ruleFor } from '@/core/calc';
+import { type Balance, type Payback, balances, base, payback, ruleFor } from '@/core/calc';
 import { currentMonth } from '@/core/dates';
 import { formatMoney, formatPercent } from '@/core/money';
+import type { Property, Rule } from '@/core/types';
 import { useData, useStore } from '@/data/store';
 import { useMoney, usePartiesOf } from '@/features/hooks';
 import { shareUrl } from '@/features/links';
 import { PageHeader } from '@/features/PageHeader';
-import { categoryLabel, dayLabel, kindLabel, monthLabel, useLocale, useT } from '@/i18n';
+import { categoryLabel, dayLabel, durationLabel, kindLabel, monthLabel, shareLabel, useLocale, useT } from '@/i18n';
+import { ProgressBar } from '@/ui/charts';
 import { Button, Empty, Row, SectionTitle, TextLink } from '@/ui/controls';
 import { Block, Card, Cols, Screen } from '@/ui/layout';
 import { T } from '@/ui/Text';
@@ -30,6 +32,7 @@ export default function PropertyScreen() {
   const parties = usePartiesOf(id);
   const [copied, setCopied] = useState<string | null>(null);
   const bal = useMemo(() => balances(data, id), [data, id]);
+  const pb = useMemo(() => payback(data, id, currentMonth()), [data, id]);
 
   const back = <TextLink label={t('Tous les biens', 'All properties')} onPress={() => router.navigate('/properties')} />;
   if (!property) {
@@ -48,6 +51,8 @@ export default function PropertyScreen() {
   const transfers = data.transfers.filter((x) => x.property_id === id).sort((a, b) => b.date.localeCompare(a.date));
   const shares = data.shares.filter((s) => s.property_id === id && !s.revoked).sort((a, b) => b.created_at.localeCompare(a.created_at));
   const others = bal.filter((b) => !b.party.is_me);
+  const together = property.kind === 'partnership' && pb !== null;
+  const me = parties.find((p) => p.is_me)?.id;
   const nameOf = (pid: string) => {
     const p = parties.find((x) => x.id === pid);
     return p?.is_me ? t('Moi', 'Me') : (p?.name ?? '');
@@ -67,37 +72,19 @@ export default function PropertyScreen() {
         <View>
           {others.length ? (
             <>
-              {others.map((b) => (
-                <View key={b.party.id} style={{ marginBottom: space.lg }}>
-                  <Card tint={pigmentOf(property.color)}>
-                    <T variant="label" color={color.inkSoft}>
-                      {t('Où on en est, depuis le début', 'Where things stand, since the beginning')}
-                    </T>
-                    <T variant="title" style={{ marginTop: 2 }}>
-                      {Math.abs(b.balance) < 1
-                        ? t(`Rien à régler avec ${b.party.name}`, `All settled with ${b.party.name}`)
-                        : b.balance > 0
-                          ? t(`Je dois ${money(b.balance)} à ${b.party.name}`, `I owe ${b.party.name} ${money(b.balance)}`)
-                          : t(`${b.party.name} me doit ${money(-b.balance)}`, `${b.party.name} owes me ${money(-b.balance)}`)}
-                    </T>
-                  </Card>
-                  <Block>
-                    <Row title={t(`Part du résultat de ${b.party.name}`, `${b.party.name}’s share of the result`)} value={money(b.entitled, { sign: true })} />
-                    {b.received ? <Row title={t('Revenus encaissés directement', 'Income collected directly')} value={money(-b.received)} /> : null}
-                    {b.paid ? <Row title={t('Dépenses payées de sa poche', 'Expenses paid out of pocket')} value={money(b.paid, { sign: true })} /> : null}
-                    {b.transfersOut ? <Row title={t(`Déjà versé par ${b.party.name}`, `Already paid in by ${b.party.name}`)} value={money(b.transfersOut, { sign: true })} /> : null}
-                    {b.transfersIn ? <Row title={t('Déjà reçu de moi', 'Already received from me')} value={money(-b.transfersIn)} /> : null}
-                  </Block>
-                </View>
-              ))}
+              {together ? (
+                <Together property={property} payback={pb} balances={bal} rule={rule} />
+              ) : (
+                others.map((b) => <Owed key={b.party.id} property={property} b={b} />)
+              )}
 
-              <SectionTitle action={<TextLink label={t('Noter un versement', 'Record a payment')} onPress={() => router.push({ pathname: '/transfer', params: { property: id } })} />}>{t('Versements', 'Payments')}</SectionTitle>
+              <SectionTitle action={<TextLink label={t('Noter un versement', 'Record a payment')} onPress={() => router.push({ pathname: '/transfer', params: { property: id } })} />}>{together ? t('Apports et versements', 'Contributions and payments') : t('Versements', 'Payments')}</SectionTitle>
               {transfers.length ? (
                 <Block>
                   {transfers.slice(0, 8).map((x, i, list) => (
                     <Row
                       key={x.id}
-                      title={`${nameOf(x.from_party)} → ${nameOf(x.to_party)}`}
+                      title={!together ? `${nameOf(x.from_party)} → ${nameOf(x.to_party)}` : x.to_party === me ? t(`Apport de ${nameOf(x.from_party)}`, `Paid in by ${nameOf(x.from_party)}`) : t(`Versé à ${nameOf(x.to_party)}`, `Paid out to ${nameOf(x.to_party)}`)}
                       subtitle={[dayLabel(x.date, locale) + ' ' + x.date.slice(0, 4), x.note].filter(Boolean).join(', ')}
                       value={money(x.amount)}
                       onPress={() => router.push({ pathname: '/transfer', params: { property: id, id: x.id } })}
@@ -122,7 +109,7 @@ export default function PropertyScreen() {
           <Block>
             {rule?.commission_rate ? <Row title={t('Ma commission', 'My commission')} subtitle={t('Prélevée sur chaque réservation, avant partage', 'Taken from each booking, before sharing')} value={formatPercent(rule.commission_rate)} /> : null}
             {(rule?.shares ?? []).map((s, i, list) => (
-              <Row key={s.party_id} title={nameOf(s.party_id)} subtitle={t(`${formatPercent(s.revenue)} des revenus, ${formatPercent(s.expense)} des dépenses`, `${formatPercent(s.revenue)} of income, ${formatPercent(s.expense)} of expenses`)} last={i === list.length - 1} />
+              <Row key={s.party_id} title={nameOf(s.party_id)} subtitle={shareLabel(s, locale) || undefined} last={i === list.length - 1} />
             ))}
             {!rule ? <Row title={t('Aucune règle : tout est pour moi', 'No rule: everything is mine')} last /> : null}
           </Block>
@@ -182,5 +169,106 @@ export default function PropertyScreen() {
         </View>
       </Cols>
     </Screen>
+  );
+}
+
+/** A managed or shared property settled as we go: who owes whom today. */
+function Owed({ property, b }: { property: Property; b: Balance }) {
+  const t = useT();
+  const money = useMoney();
+  return (
+    <View style={{ marginBottom: space.lg }}>
+      <Card tint={pigmentOf(property.color)}>
+        <T variant="label" color={color.inkSoft}>
+          {t('Où on en est, depuis le début', 'Where things stand, since the beginning')}
+        </T>
+        <T variant="title" style={{ marginTop: 2 }}>
+          {Math.abs(b.balance) < 1
+            ? t(`Rien à régler avec ${b.party.name}`, `All settled with ${b.party.name}`)
+            : b.balance > 0
+              ? t(`Je dois ${money(b.balance)} à ${b.party.name}`, `I owe ${b.party.name} ${money(b.balance)}`)
+              : t(`${b.party.name} me doit ${money(-b.balance)}`, `${b.party.name} owes me ${money(-b.balance)}`)}
+        </T>
+      </Card>
+      <Block>
+        <Row title={t(`Part du résultat de ${b.party.name}`, `${b.party.name}’s share of the result`)} value={money(b.entitled, { sign: true })} />
+        {b.received ? <Row title={t('Revenus encaissés directement', 'Income collected directly')} value={money(-b.received)} /> : null}
+        {b.paid ? <Row title={t('Dépenses payées de sa poche', 'Expenses paid out of pocket')} value={money(b.paid, { sign: true })} /> : null}
+        {b.transfersOut ? <Row title={t(`Déjà versé par ${b.party.name}`, `Already paid in by ${b.party.name}`)} value={money(b.transfersOut, { sign: true })} /> : null}
+        {b.transfersIn ? <Row title={t('Déjà reçu de moi', 'Already received from me')} value={money(-b.transfersIn)} last /> : null}
+      </Block>
+    </View>
+  );
+}
+
+/**
+ * A partnership: income stays in the business until the partners share the
+ * profit, so the question is not "who owes whom" but "have we recovered what
+ * we put in, and what does each partner's account hold".
+ */
+function Together({ property, payback: pb, balances: bal, rule }: { property: Property; payback: Payback; balances: Balance[]; rule: Rule | null }) {
+  const t = useT();
+  const locale = useLocale();
+  const money = useMoney();
+  const recovering = pb.cumulative < -1;
+  const recovered = pb.invested + pb.cumulative;
+  const pace = money(pb.pace, { sign: true });
+  const months = t(`${pb.paceMonths} dernier${pb.paceMonths > 1 ? 's' : ''} mois complet${pb.paceMonths > 1 ? 's' : ''}`, `last ${pb.paceMonths} complete month${pb.paceMonths > 1 ? 's' : ''}`);
+  const outlook = !recovering || !pb.paceMonths
+    ? null
+    : pb.monthsLeft
+      ? t(`Au rythme des ${months} (${pace} par mois), il faudrait encore ${durationLabel(pb.monthsLeft, locale)}.`, `At the pace of the ${months} (${pace} a month), it would take another ${durationLabel(pb.monthsLeft, locale)}.`)
+      : t(`Sur les ${months}, le résultat moyen est de ${pace} par mois : à ce rythme, la mise de départ ne se récupère pas.`, `Over the ${months}, the average result is ${pace} a month: at that pace, the initial outlay is never recovered.`);
+  const sorted = [...bal].sort((a, b) => Number(b.party.is_me) - Number(a.party.is_me));
+  return (
+    <View style={{ marginBottom: space.lg }}>
+      <Card tint={pigmentOf(property.color)}>
+        <T variant="label" color={color.inkSoft}>
+          {t('Depuis le début', 'Since the beginning')}
+        </T>
+        <T variant="title" style={{ marginTop: 2 }}>
+          {recovering ? t(`Encore ${money(-pb.cumulative)} à récupérer`, `${money(-pb.cumulative)} still to recover`) : t(`${money(pb.cumulative)} de bénéfice`, `${money(pb.cumulative)} of profit`)}
+        </T>
+        {recovering && recovered / pb.invested >= 0.01 ? (
+          <View style={{ marginTop: space.md, gap: 6 }}>
+            <ProgressBar value={recovered / pb.invested} />
+            <T variant="small" color={color.inkSoft}>
+              {t(`${money(recovered)} récupérés sur ${money(pb.invested)} engagés au plus fort.`, `${money(recovered)} recovered out of ${money(pb.invested)} committed at the deepest point.`)}
+            </T>
+          </View>
+        ) : null}
+        {outlook ? (
+          <T variant="small" color={color.inkSoft} style={{ marginTop: space.sm }}>
+            {outlook}
+          </T>
+        ) : null}
+      </Card>
+      <Block>
+        {sorted.map((b) => (
+          <Row
+            key={b.party.id}
+            title={b.party.is_me ? t('Ma part', 'My share') : t(`Part de ${b.party.name}`, `${b.party.name}’s share`)}
+            subtitle={shareLabel(rule?.shares.find((x) => x.party_id === b.party.id), locale) || undefined}
+            value={money(b.entitled, { sign: true })}
+            valueColor={b.entitled < 0 ? color.negative : color.ink}
+          />
+        ))}
+        {sorted
+          .filter((b) => !b.party.is_me)
+          .flatMap((b) => [
+            b.transfersOut ? <Row key={b.party.id + 'in'} title={t(`Apports de ${b.party.name}`, `Paid in by ${b.party.name}`)} value={money(b.transfersOut, { sign: true })} /> : null,
+            b.paid ? <Row key={b.party.id + 'paid'} title={t(`Dépenses payées par ${b.party.name}`, `Expenses paid by ${b.party.name}`)} value={money(b.paid, { sign: true })} /> : null,
+            b.received ? <Row key={b.party.id + 'got'} title={t(`Revenus encaissés par ${b.party.name}`, `Income collected by ${b.party.name}`)} value={money(-b.received)} /> : null,
+            b.transfersIn ? <Row key={b.party.id + 'out'} title={t(`Déjà versé à ${b.party.name}`, `Already paid out to ${b.party.name}`)} value={money(-b.transfersIn)} /> : null,
+            <Row
+              key={b.party.id + 'account'}
+              title={t(`Compte de ${b.party.name}`, `${b.party.name}’s account`)}
+              subtitle={t('Apports et part du résultat, moins ce qui a déjà été versé', 'Paid in plus share of the result, minus what was already paid out')}
+              value={money(b.balance, { sign: true })}
+              last
+            />,
+          ])}
+      </Block>
+    </View>
   );
 }

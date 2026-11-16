@@ -12,7 +12,7 @@
  * Anything unusual is handled per row: a booking can carry its own commission
  * rate, an expense can be charged to a single party or marked private.
  */
-import { addDays, daysInMonth, diffDays, monthOf } from './dates';
+import { addDays, daysInMonth, diffDays, monthOf, monthRange } from './dates';
 import type { Booking, Data, Expense, ID, Month, Party, Property, Rule, Transfer } from './types';
 
 /** Amount of a row in the account currency. */
@@ -305,6 +305,40 @@ export function dataSpan(data: Data, propertyId: ID | null): { first: Month; las
   if (!months.length) return null;
   months.sort();
   return { first: months[0], last: months[months.length - 1] };
+}
+
+export interface Payback {
+  /** Result accumulated since the first entry. Negative: still to recover. */
+  cumulative: number;
+  /** The deepest the running result has been: what had to be put on the table. */
+  invested: number;
+  /** Average result of the last complete months (six at most), first month left out. */
+  pace: number;
+  /** How many months that average covers. */
+  paceMonths: number;
+  /** Months still needed at that pace, the month in progress included. Null when nothing is left to recover or the pace never gets there. */
+  monthsLeft: number | null;
+}
+
+/**
+ * Has the property paid back what it cost to set up? The first month is left
+ * out of the pace because it carries the set-up costs, and the month in
+ * progress because its income is not all in yet.
+ */
+export function payback(data: Data, propertyId: ID, today: Month): Payback | null {
+  const span = dataSpan(data, propertyId);
+  if (!span) return null;
+  const points = series(data, propertyId, monthRange(span.first, span.last > today ? span.last : today));
+  const cumulative = points[points.length - 1].cumulative;
+  const invested = Math.max(0, ...points.map((p) => -p.cumulative));
+  const closed = points.filter((p) => p.month < today);
+  const complete = closed.filter((p) => p.month > span.first).slice(-6);
+  const pace = complete.length ? complete.reduce((t, p) => t + p.net, 0) / complete.length : 0;
+  // Counted from the end of the last complete month, so that a month in
+  // progress (rent paid, income still to come) does not skew the estimate.
+  const left = closed.length ? -closed[closed.length - 1].cumulative : -cumulative;
+  const monthsLeft = left > 0 && pace > 0 ? Math.ceil(left / pace) : null;
+  return { cumulative, invested, pace, paceMonths: complete.length, monthsLeft };
 }
 
 export interface Occupancy {

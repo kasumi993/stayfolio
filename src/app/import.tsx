@@ -8,11 +8,10 @@ import { View } from 'react-native';
 
 import { monthStatement, statement } from '@/core/calc';
 import { type ImportPlan, planImport } from '@/core/importWorkbook';
-import { formatPercent } from '@/core/money';
 import { type Data, emptyData } from '@/core/types';
 import { useStore } from '@/data/store';
 import { useMoney } from '@/features/hooks';
-import { monthLabel, useLocale, useT } from '@/i18n';
+import { monthLabel, shareLabel, useLocale, useT } from '@/i18n';
 import { pickWorkbook } from '@/platform/pick';
 import { Button, Notice, Row, SectionTitle } from '@/ui/controls';
 import { Field } from '@/ui/fields';
@@ -111,7 +110,7 @@ export default function ImportScreen() {
           {plan.transfers.length ? <Row title={t(`Versements de ${partner?.name ?? ''}`, `Payments from ${partner?.name ?? ''}`)} subtitle={t(`${plan.transfers.length} versements`, `${plan.transfers.length} payments`)} value={money(plan.transfers.reduce((s, x) => s + x.amount, 0))} /> : null}
           {plan.rule.shares.map((s, i, list) => {
             const party = plan.parties.find((p) => p.id === s.party_id);
-            return <Row key={s.party_id} title={party?.name ?? ''} subtitle={t(`${formatPercent(s.revenue)} des revenus, ${formatPercent(s.expense)} des dépenses`, `${formatPercent(s.revenue)} of income, ${formatPercent(s.expense)} of expenses`)} last={i === list.length - 1 && !plan.recurring.length} />;
+            return <Row key={s.party_id} title={party?.name ?? ''} subtitle={shareLabel(s, locale)} last={i === list.length - 1 && !plan.recurring.length} />;
           })}
           {plan.recurring.map((r, i) => (
             <Row key={r.id} title={t('Loyer en dépense récurrente', 'Rent as a recurring expense')} subtitle={t(`Ajouté seul chaque mois à partir de ${monthLabel(r.start_month, locale).toLowerCase()}`, `Added by itself every month from ${monthLabel(r.start_month, locale)}`)} value={money(r.amount * r.fx_rate)} last={i === plan.recurring.length - 1} />

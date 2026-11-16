@@ -15,7 +15,8 @@ import type { Data, ID, ISODate, Month } from './types';
 export interface SharedStatement {
   version: 1;
   generated_at: string;
-  property: { name: string; location: string; color: string };
+  /** `kind` is absent from statements published before it existed. */
+  property: { name: string; location: string; color: string; kind?: string };
   /** The person the statement is addressed to. */
   audience: string;
   /** Who prepared it. */
@@ -106,7 +107,7 @@ export function buildSharedStatement(
   return {
     version: 1,
     generated_at: now(),
-    property: { name: property.name, location: property.location, color: property.color },
+    property: { name: property.name, location: property.location, color: property.color, kind: property.kind },
     audience: party.name,
     manager: data.profile.name,
     currency: data.profile.currency,

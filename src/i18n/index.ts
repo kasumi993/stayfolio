@@ -9,6 +9,7 @@
  */
 import { getLocales } from 'expo-localization';
 
+import { formatPercent } from '@/core/money';
 import type { Month } from '@/core/types';
 import { useStore } from '@/data/store';
 
@@ -50,6 +51,27 @@ export function dayLabel(date: string, locale: Locale): string {
   const month = MONTHS[locale][Number(date.slice(5, 7)) - 1];
   const short = month.length > 4 ? shortName(month) + '.' : month;
   return locale === 'fr' ? `${Number(date.slice(8, 10))} ${short}` : `${cap(short)} ${Number(date.slice(8, 10))}`;
+}
+
+/** How a party shares in a property: "60 % du résultat", or both figures when they differ. */
+export function shareLabel(share: { revenue: number; expense: number } | undefined, locale: Locale): string {
+  if (!share || (!share.revenue && !share.expense)) return '';
+  const fr = locale === 'fr';
+  if (share.revenue === share.expense) return fr ? `${formatPercent(share.revenue)} du résultat` : `${formatPercent(share.revenue)} of the result`;
+  const parts: string[] = [];
+  if (share.revenue) parts.push(fr ? `${formatPercent(share.revenue)} des revenus` : `${formatPercent(share.revenue)} of income`);
+  if (share.expense) parts.push(fr ? `${formatPercent(share.expense)} des dépenses` : `${formatPercent(share.expense)} of expenses`);
+  return parts.join(', ');
+}
+
+/** `51` → `4 ans et 3 mois` */
+export function durationLabel(months: number, locale: Locale): string {
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+  const fr = locale === 'fr';
+  const y = years ? (fr ? `${years} an${years > 1 ? 's' : ''}` : `${years} year${years > 1 ? 's' : ''}`) : '';
+  const m = rest ? (fr ? `${rest} mois` : `${rest} month${rest > 1 ? 's' : ''}`) : '';
+  return [y, m].filter(Boolean).join(fr ? ' et ' : ' and ');
 }
 
 export const WEEKDAYS = { fr: ['L', 'M', 'M', 'J', 'V', 'S', 'D'], en: ['M', 'T', 'W', 'T', 'F', 'S', 'S'] };

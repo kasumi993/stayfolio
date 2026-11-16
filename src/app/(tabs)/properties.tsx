@@ -2,7 +2,7 @@
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
-import { balances, occupancy, statement } from '@/core/calc';
+import { balances, occupancy, payback, statement } from '@/core/calc';
 import { currentMonth, monthRange, yearOf } from '@/core/dates';
 import type { Property } from '@/core/types';
 import { useData } from '@/data/store';
@@ -72,6 +72,7 @@ function PropertyCard({ property: p, year, onPress }: { property: Property; year
   const s = statement(data, p.id, (m) => m.startsWith(year));
   const occ = occupancy(data, p.id, monthRange(`${year}-01`, currentMonth()).filter((m) => m.startsWith(year)));
   const owed = balances(data, p.id).filter((b) => !b.party.is_me && Math.abs(b.balance) >= 1);
+  const pb = p.kind === 'partnership' ? payback(data, p.id, currentMonth()) : null;
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={p.name} onPress={onPress} style={({ pressed }) => ({ borderWidth: 1, borderColor: color.line, borderRadius: radius.lg, overflow: 'hidden', opacity: pressed ? 0.7 : 1 })}>
       <View style={{ backgroundColor: pigmentOf(p.color), padding: space.lg, flexDirection: 'row', alignItems: 'center', gap: space.md }}>
@@ -95,7 +96,12 @@ function PropertyCard({ property: p, year, onPress }: { property: Property; year
           <Figure label={t('Revenus', 'Income')} value={money(s.revenue)} />
           <Figure label={t('Dépenses', 'Expenses')} value={money(s.expenses)} />
         </View>
-        {owed.map((b) => (
+        {pb ? (
+          <T variant="small" color={color.inkSoft}>
+            {pb.cumulative < -1 ? t(`Encore ${money(-pb.cumulative)} à récupérer depuis le début.`, `${money(-pb.cumulative)} still to recover since the beginning.`) : t(`${money(pb.cumulative)} de bénéfice depuis le début.`, `${money(pb.cumulative)} of profit since the beginning.`)}
+          </T>
+        ) : null}
+        {(pb ? [] : owed).map((b) => (
           <T key={b.party.id} variant="small" color={color.inkSoft}>
             {b.balance > 0 ? t(`Je dois ${money(b.balance)} à ${b.party.name}.`, `I owe ${b.party.name} ${money(b.balance)}.`) : t(`${b.party.name} me doit ${money(-b.balance)}.`, `${b.party.name} owes me ${money(-b.balance)}.`)}
           </T>

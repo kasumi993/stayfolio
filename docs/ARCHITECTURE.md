@@ -61,6 +61,12 @@ look at it.
 - **Balances.** For each party: what they are entitled to (their share of the
   result) minus the cash they hold (payouts received − expenses paid ±
   transfers). The balances of a property always add up to zero.
+- **Partnerships** (`kind: 'partnership'`) keep their income in the business
+  and share the profit now and then, so the property page does not say "who
+  owes whom". It shows what is left to recover since the first entry, the pace
+  of the last complete months (`payback`), and each partner's account: what
+  they paid in, plus their share of the result, minus what they were paid out.
+  Money a partner puts in or takes out is a transfer.
 - **Month of a booking** is the check-in month (as in the Excel tracker), or
   the payout month if the property is set that way.
 
