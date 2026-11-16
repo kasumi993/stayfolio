@@ -1,0 +1,49 @@
+# Nightly backup of the database, kept 90 days as a private workflow artifact.
+#
+# Why this exists: the Supabase Free plan has no automatic backups, and pauses
+# a project after 7 days without activity. This job covers both: it saves the
+# data and, by querying the database every night, keeps the project awake.
+#
+# One-time setup: add a repository secret named SUPABASE_DB_URL containing the
+# "Session pooler" connection string of the project (Supabase dashboard →
+# Connect). See docs/OPERATIONS.md.
+name: Backup
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Keep the project awake
+        run: |
+          set -a; . ./.env; set +a
+          curl -sS -o /dev/null -w "API answered %{http_code}\n" \
+            -X POST "$EXPO_PUBLIC_SUPABASE_URL/rest/v1/rpc/get_shared_statement" \
+            -H "apikey: $EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"p_token":"keep-awake"}'
+      - name: Stop here if the backup secret is not set yet
+        if: env.SUPABASE_DB_URL == ''
+        run: echo "::warning::SUPABASE_DB_URL is not set, so no backup was taken. See docs/OPERATIONS.md."
+      - uses: supabase/setup-cli@v1
+        if: env.SUPABASE_DB_URL != ''
+        with:
+          version: latest
+      - name: Dump schema and data
+        if: env.SUPABASE_DB_URL != ''
+        run: |
+          mkdir backup
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy -f backup/data.sql
+          ls -la backup
+      - uses: actions/upload-artifact@v4
+        if: env.SUPABASE_DB_URL != ''
+        with:
+          name: stayfolio-backup-${{ github.run_id }}
+          path: backup
+          retention-days: 90

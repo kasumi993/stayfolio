@@ -1,0 +1,21 @@
+# Builds the iPhone app in Expo's cloud and sends it to TestFlight.
+# Run by hand from the Actions tab. Needs the EXPO_TOKEN secret and one first
+# build started interactively (see docs/RELEASE.md).
+name: Build iOS
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: eas build --platform ios --profile production --non-interactive --no-wait --auto-submit

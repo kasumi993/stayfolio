@@ -1,0 +1,414 @@
+/**
+ * Add or edit an expense or an income (booking payout).
+ * Opened with ?type=expense|booking, and ?id=… to edit an existing row.
+ */
+import { Image } from 'expo-image';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Pressable, View } from 'react-native';
+
+import { ruleFor } from '@/core/calc';
+import { diffDays, monthOf, today } from '@/core/dates';
+import { newId, now } from '@/core/id';
+import { evalAmount, formatNumber, formatPercent } from '@/core/money';
+import { type Booking, CATEGORIES, type Doc, type Expense, PLATFORMS } from '@/core/types';
+import { AiUnavailable } from '@/data/backend';
+import { useData, useStore } from '@/data/store';
+import { usePartiesOf, useSelection } from '@/features/hooks';
+import { peekPendingFile, setPendingFile } from '@/features/pendingFile';
+import { categoryLabel, monthLabel, useLocale, useT } from '@/i18n';
+import { type PickedFile, pickDocument, pickPhoto, takePhoto } from '@/platform/pick';
+import { Button, Choice, ConfirmButton, Notice, TextLink, Toggle } from '@/ui/controls';
+import { AmountField, DateFields, Field, Label } from '@/ui/fields';
+import { Icon } from '@/ui/Icon';
+import { FormScreen } from '@/ui/layout';
+import { T } from '@/ui/Text';
+import { color, pigmentOf, platformColor, radius, space } from '@/ui/theme';
+
+const CURRENCIES = ['XOF', 'EUR', 'USD'];
+
+export default function EntryScreen() {
+  const params = useLocalSearchParams<{ type?: string; id?: string; scan?: string }>();
+  return params.type === 'booking' ? <BookingForm id={params.id} /> : <ExpenseForm id={params.id} scan={params.scan === '1'} />;
+}
+
+/** Shared by both forms: which property, with the current filter as default. */
+function usePropertyChoice(initial: string | null | undefined, allowNone: boolean) {
+  const t = useT();
+  const { property, active } = useSelection();
+  const [propertyId, setPropertyId] = useState<string | null>(initial !== undefined ? initial : (property?.id ?? (allowNone ? null : (active[0]?.id ?? null))));
+  const options = [
+    ...active.map((p) => ({ value: p.id as string | null, label: p.name, dot: pigmentOf(p.color) })),
+    ...(allowNone ? [{ value: null, label: t('Aucun (mon activité)', 'None (my business)') }] : []),
+  ];
+  return { propertyId, setPropertyId, options };
+}
+
+/** Converts between the amount typed and the account currency. */
+function useRate(currency: string, initial?: number) {
+  const profile = useStore((s) => s.data.profile);
+  const fallback = currency === profile.currency ? 1 : (profile.fx[currency] ?? 1);
+  const [custom, setCustom] = useState<string | null>(initial !== undefined && initial !== fallback ? String(initial) : null);
+  const rate = custom !== null ? (evalAmount(custom) ?? fallback) : fallback;
+  return { rate, custom, setCustom, fallback, foreign: currency !== profile.currency };
+}
+
+function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
+  const t = useT();
+  const locale = useLocale();
+  const data = useData();
+  const { save, remove, addDoc, removeDoc, backend } = useStore.getState();
+  const existing = data.expenses.find((x) => x.id === id);
+  const profile = data.profile;
+
+  const [amount, setAmount] = useState(existing ? String(existing.amount) : '');
+  const [currency, setCurrency] = useState(existing?.currency ?? profile.currency);
+  const [category, setCategory] = useState(existing?.category ?? 'other');
+  const [date, setDate] = useState(existing?.date ?? today());
+  const [vendor, setVendor] = useState(existing?.vendor ?? '');
+  const [description, setDescription] = useState(existing?.description ?? '');
+  const [scope, setScope] = useState(existing?.scope ?? 'property');
+  const [chargedTo, setChargedTo] = useState(existing?.charged_to ?? null);
+  const [paidBy, setPaidBy] = useState(existing?.paid_by ?? null);
+  const [excluded, setExcluded] = useState(existing?.excluded ?? false);
+  const [more, setMore] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const { propertyId, setPropertyId, options } = usePropertyChoice(existing ? existing.property_id : undefined, true);
+  const { rate, custom, setCustom, fallback, foreign } = useRate(currency, existing?.fx_rate);
+  const parties = usePartiesOf(propertyId);
+  const docs = data.docs.filter((d) => existing && d.expense_id === existing.id);
+
+  const [file, setFile] = useState<PickedFile | null>(() => (scan ? peekPendingFile() : null));
+  const [reading, setReading] = useState(false);
+  const [aiNote, setAiNote] = useState<string | null>(null);
+
+  const vendors = useMemo(() => [...new Set(data.expenses.map((x) => x.vendor).filter(Boolean))], [data.expenses]);
+  const value = evalAmount(amount);
+  // A general cost belongs to no property, so it can only be private.
+  const effectiveScope = propertyId ? scope : 'private';
+
+  /** Asks the server to read the receipt and fills in what is still empty. */
+  async function read(picked: PickedFile) {
+    if (!picked.base64) return;
+    setReading(true);
+    setAiNote(null);
+    try {
+      const r = await backend.readReceipt(picked.base64, picked.mime);
+      if (r.amount && !amount) setAmount(String(r.amount));
+      if (r.currency && CURRENCIES.includes(r.currency)) setCurrency(r.currency);
+      if (r.vendor && !vendor) setVendor(r.vendor);
+      if (r.description && !description) setDescription(r.description);
+      if (r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) setDate(r.date);
+      if (r.category && (CATEGORIES as readonly string[]).includes(r.category)) setCategory(r.category);
+      setAiNote(t('Reçu lu. Vérifie les champs avant d’enregistrer.', 'Receipt read. Check the fields before saving.'));
+    } catch (e) {
+      if (e instanceof AiUnavailable && e.reason === 'quota') setAiNote(t('Limite de lectures atteinte pour aujourd’hui. Le reçu reste joint.', 'Daily reading limit reached. The receipt stays attached.'));
+      else if (!(e instanceof AiUnavailable)) setAiNote(t('Lecture impossible. Le reçu reste joint, remplis les champs à la main.', 'Could not read it. The receipt stays attached; fill in the fields by hand.'));
+    } finally {
+      setReading(false);
+    }
+  }
+
+  useEffect(() => {
+    // Opened from the "add" menu with a photo: take it and read it, once.
+    setPendingFile(null);
+    if (!scan || !file) return;
+    const timer = setTimeout(() => void read(file), 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function attach(pick: () => Promise<PickedFile | null>) {
+    try {
+      const picked = await pick();
+      if (!picked) return;
+      setFile(picked);
+      if (!existing) void read(picked);
+    } catch {
+      useStore.setState({ error: t('Accès à l’appareil photo refusé. Autorise-le dans les réglages.', 'Camera access was refused. Allow it in Settings.') });
+    }
+  }
+
+  async function submit() {
+    if (value === null) return;
+    setBusy(true);
+    const row: Expense = {
+      id: existing?.id ?? newId(),
+      property_id: propertyId,
+      date,
+      // A generated occurrence stays in its month even if its date is edited.
+      month: existing?.recurring_id ? existing.month : monthOf(date),
+      category,
+      vendor: vendor.trim(),
+      description: description.trim(),
+      currency,
+      amount: value,
+      fx_rate: rate,
+      scope: effectiveScope,
+      charged_to: effectiveScope === 'property' ? chargedTo : null,
+      paid_by: paidBy,
+      recurring_id: existing?.recurring_id ?? null,
+      excluded,
+      created_at: existing?.created_at ?? now(),
+    };
+    try {
+      await save('expenses', row);
+      if (file) await addDoc(file, { expense_id: row.id, property_id: propertyId });
+      useStore.getState().setMonth(row.month);
+      router.back();
+    } catch {
+      setBusy(false);
+    }
+  }
+
+  async function destroy() {
+    if (!existing) return;
+    setBusy(true);
+    for (const d of docs) await removeDoc(d);
+    await remove('expenses', existing.id);
+    router.back();
+  }
+
+  return (
+    <FormScreen
+      title={existing ? t('Dépense', 'Expense') : t('Nouvelle dépense', 'New expense')}
+      footer={<Button label={t('Enregistrer', 'Save')} onPress={submit} busy={busy} disabled={value === null || value === 0} />}>
+      {existing?.recurring_id ? (
+        <View style={{ backgroundColor: color.surface, borderRadius: radius.lg, padding: space.lg }}>
+          <Toggle
+            value={excluded}
+            onChange={setExcluded}
+            label={t(`Exclure en ${monthLabel(existing.month, locale).toLowerCase()}`, `Skip in ${monthLabel(existing.month, locale)}`)}
+            hint={t('Dépense récurrente. L’exclure ne touche ni les autres mois ni le réglage.', 'Recurring expense. Skipping it leaves other months and the setup untouched.')}
+          />
+        </View>
+      ) : null}
+
+      {reading ? <Notice icon="spark" text={t('Lecture du reçu en cours…', 'Reading the receipt…')} /> : aiNote ? <Notice icon="spark" tone="positive" text={aiNote} /> : null}
+
+      <AmountField label={t('Montant', 'Amount')} value={amount} onChangeText={setAmount} currency={currency} autoFocus={!existing && !scan} />
+      <Choice value={currency} onChange={setCurrency} options={CURRENCIES.map((c) => ({ value: c, label: c }))} />
+      {foreign ? <Field label={t(`Taux : 1 ${currency} en ${profile.currency}`, `Rate: 1 ${currency} in ${profile.currency}`)} value={custom ?? String(fallback)} onChangeText={setCustom} keyboardType="numbers-and-punctuation" /> : null}
+
+      <View>
+        <Label>{t('Catégorie', 'Category')}</Label>
+        <Choice value={category} onChange={setCategory} options={CATEGORIES.map((c) => ({ value: c as string, label: categoryLabel(c, locale) }))} />
+      </View>
+
+      <View>
+        <Label>{t('Bien', 'Property')}</Label>
+        <Choice value={propertyId} onChange={setPropertyId} options={options} />
+      </View>
+
+      <DateFields items={[{ label: t('Date', 'Date'), value: date, onChange: (d) => d && setDate(d) }]} />
+      <Field label={t('Fournisseur', 'Vendor')} value={vendor} onChangeText={setVendor} suggestions={vendors} placeholder="Woyofal, Orange, Diarra…" />
+      <Field label={t('Description', 'Description')} value={description} onChangeText={setDescription} multiline />
+
+      <View>
+        <Label>{t('Justificatif', 'Receipt')}</Label>
+        {docs.map((d) => (
+          <DocLine key={d.id} doc={d} onRemove={() => void removeDoc(d)} />
+        ))}
+        {file ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: color.surface, borderRadius: radius.md, padding: space.sm, marginBottom: space.sm }}>
+            {file.base64 ? <Image source={{ uri: `data:${file.mime};base64,${file.base64}` }} style={{ width: 56, height: 56, borderRadius: radius.sm }} contentFit="cover" /> : <Icon name="file" />}
+            <T variant="label" style={{ flex: 1 }} numberOfLines={1}>
+              {file.name}
+            </T>
+            <TextLink label={t('Retirer', 'Remove')} onPress={() => setFile(null)} />
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', gap: space.sm }}>
+            <Button compact tone="quiet" icon="camera" label={t('Photo', 'Photo')} onPress={() => void attach(takePhoto)} style={{ flex: 1 }} />
+            <Button compact tone="quiet" icon="image" label={t('Galerie', 'Library')} onPress={() => void attach(pickPhoto)} style={{ flex: 1 }} />
+            <Button compact tone="quiet" icon="file" label="PDF" onPress={() => void attach(pickDocument)} style={{ flex: 1 }} />
+          </View>
+        )}
+      </View>
+
+      {propertyId ? (
+        <>
+          <TextLink label={more ? t('Masquer les options', 'Hide options') : t('Répartition et paiement', 'Split and payment')} onPress={() => setMore(!more)} />
+          {more ? (
+            <>
+              <View>
+                <Label>{t('À la charge de', 'Charged to')}</Label>
+                <Choice
+                  value={effectiveScope === 'private' ? 'private' : (chargedTo ?? 'split')}
+                  onChange={(v) => {
+                    setScope(v === 'private' ? 'private' : 'property');
+                    setChargedTo(v === 'private' || v === 'split' ? null : v);
+                  }}
+                  options={[
+                    { value: 'split', label: t('Selon les règles du bien', 'Per the property rules') },
+                    ...parties.map((p) => ({ value: p.id, label: p.is_me ? t('Moi seule', 'Me only') : t(`${p.name} seul·e`, `${p.name} only`) })),
+                    { value: 'private', label: t('Privée (mes frais)', 'Private (my costs)') },
+                  ]}
+                />
+                <T variant="small" color={color.inkSoft} style={{ marginTop: 6 }}>
+                  {t('Une dépense privée compte dans ma rentabilité, jamais dans les comptes du bien ni dans un relevé partagé.', 'A private expense counts in my own profitability, never in the property books or a shared statement.')}
+                </T>
+              </View>
+              {parties.length > 1 ? (
+                <View>
+                  <Label>{t('Payée par', 'Paid by')}</Label>
+                  <Choice value={paidBy} onChange={setPaidBy} options={parties.map((p) => ({ value: p.is_me ? null : p.id, label: p.is_me ? t('Moi', 'Me') : p.name }))} />
+                </View>
+              ) : null}
+            </>
+          ) : null}
+        </>
+      ) : null}
+
+      {existing && !existing.recurring_id ? <ConfirmButton label={t('Supprimer cette dépense', 'Delete this expense')} confirmLabel={t('Confirmer la suppression', 'Confirm deletion')} onConfirm={() => void destroy()} /> : null}
+    </FormScreen>
+  );
+}
+
+function BookingForm({ id }: { id?: string }) {
+  const t = useT();
+  const data = useData();
+  const { save, remove } = useStore.getState();
+  const existing = data.bookings.find((b) => b.id === id);
+  const profile = data.profile;
+
+  const [amount, setAmount] = useState(existing ? String(existing.amount) : '');
+  const [currency, setCurrency] = useState(existing?.currency ?? profile.currency);
+  const [platform, setPlatform] = useState(existing?.platform ?? 'Airbnb');
+  const [checkIn, setCheckIn] = useState(existing?.check_in ?? today());
+  const [checkOut, setCheckOut] = useState<string | null>(existing ? existing.check_out : null);
+  const [receivedOn, setReceivedOn] = useState<string | null>(existing ? existing.received_on : today());
+  const [guest, setGuest] = useState(existing?.guest ?? '');
+  const [notes, setNotes] = useState(existing?.notes ?? '');
+  const [commission, setCommission] = useState(existing?.commission_rate != null ? String(existing.commission_rate * 100) : '');
+  const [receivedBy, setReceivedBy] = useState(existing?.received_by ?? null);
+  const [more, setMore] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const { propertyId, setPropertyId, options } = usePropertyChoice(existing ? existing.property_id : undefined, false);
+  const { rate, custom, setCustom, fallback, foreign } = useRate(currency, existing?.fx_rate);
+  const parties = usePartiesOf(propertyId);
+
+  const property = data.properties.find((p) => p.id === propertyId);
+  const rule = propertyId ? ruleFor(data.rules, propertyId, monthOf(checkIn)) : null;
+  const value = evalAmount(amount);
+  const nights = checkOut ? diffDays(checkIn, checkOut) : 0;
+  const customCommission = commission.trim() === '' ? null : evalAmount(commission);
+  const platforms = [...new Set([...PLATFORMS, ...data.bookings.map((b) => b.platform)])];
+
+  async function submit() {
+    if (value === null || !propertyId) return;
+    setBusy(true);
+    const row: Booking = {
+      id: existing?.id ?? newId(),
+      property_id: propertyId,
+      platform,
+      guest: guest.trim(),
+      check_in: checkIn,
+      check_out: checkOut && checkOut >= checkIn ? checkOut : null,
+      received_on: receivedOn,
+      currency,
+      amount: value,
+      fx_rate: rate,
+      commission_rate: customCommission === null ? null : Math.min(Math.max(customCommission / 100, 0), 1),
+      received_by: receivedBy,
+      notes: notes.trim(),
+      created_at: existing?.created_at ?? now(),
+    };
+    try {
+      await save('bookings', row);
+      useStore.getState().setMonth(monthOf(property?.revenue_basis === 'received' && receivedOn ? receivedOn : checkIn));
+      router.back();
+    } catch {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <FormScreen
+      title={existing ? t('Revenu', 'Income') : t('Nouveau revenu', 'New income')}
+      footer={<Button label={t('Enregistrer', 'Save')} onPress={submit} busy={busy} disabled={value === null || value === 0 || !propertyId} />}>
+      <AmountField label={t('Montant net reçu', 'Net payout')} value={amount} onChangeText={setAmount} currency={currency} autoFocus={!existing} />
+      <Choice value={currency} onChange={setCurrency} options={CURRENCIES.map((c) => ({ value: c, label: c }))} />
+      {foreign ? <Field label={t(`Taux : 1 ${currency} en ${profile.currency}`, `Rate: 1 ${currency} in ${profile.currency}`)} value={custom ?? String(fallback)} onChangeText={setCustom} keyboardType="numbers-and-punctuation" /> : null}
+
+      <View>
+        <Label>{t('Plateforme', 'Platform')}</Label>
+        <Choice value={platform} onChange={setPlatform} options={platforms.map((p) => ({ value: p, label: p, dot: platformColor(p) }))} />
+      </View>
+
+      <View>
+        <Label>{t('Bien', 'Property')}</Label>
+        <Choice value={propertyId} onChange={setPropertyId} options={options} />
+      </View>
+
+      <View>
+        <DateFields
+          items={[
+            { label: t('Arrivée', 'Check-in'), value: checkIn, onChange: (d) => d && setCheckIn(d) },
+            { label: t('Départ', 'Check-out'), value: checkOut, onChange: setCheckOut, rangeStart: checkIn, optional: true },
+          ]}
+        />
+        {nights > 0 ? (
+          <T variant="small" color={color.inkSoft} style={{ marginTop: 6 }}>
+            {t(`${nights} nuit${nights > 1 ? 's' : ''}`, `${nights} night${nights > 1 ? 's' : ''}`)}
+            {value ? t(`, soit ${formatNumber((value * rate) / nights)} par nuit`, `, i.e. ${formatNumber((value * rate) / nights)} per night`) : ''}
+          </T>
+        ) : null}
+      </View>
+
+      <DateFields items={[{ label: t('Versement reçu le', 'Payout received on'), value: receivedOn, onChange: setReceivedOn, optional: true }]} />
+      <Field label={t('Voyageur', 'Guest')} value={guest} onChangeText={setGuest} />
+      <Field label={t('Notes', 'Notes')} value={notes} onChangeText={setNotes} multiline />
+
+      <TextLink label={more ? t('Masquer les options', 'Hide options') : t('Commission et encaissement', 'Commission and collection')} onPress={() => setMore(!more)} />
+      {more ? (
+        <>
+          <Field
+            label={t('Ma commission sur ce revenu (%)', 'My commission on this income (%)')}
+            value={commission}
+            onChangeText={setCommission}
+            keyboardType="numbers-and-punctuation"
+            placeholder={t(`Règle du bien : ${formatPercent(rule?.commission_rate ?? 0)}`, `Property rule: ${formatPercent(rule?.commission_rate ?? 0)}`)}
+          />
+          {parties.length > 1 ? (
+            <View>
+              <Label>{t('Encaissé par', 'Collected by')}</Label>
+              <Choice
+                value={receivedBy}
+                onChange={setReceivedBy}
+                options={[{ value: null as string | null, label: t('Selon le bien', 'Per the property') }, ...parties.map((p) => ({ value: p.id as string | null, label: p.is_me ? t('Moi', 'Me') : p.name }))]}
+              />
+            </View>
+          ) : null}
+        </>
+      ) : null}
+
+      {existing ? (
+        <ConfirmButton
+          label={t('Supprimer ce revenu', 'Delete this income')}
+          confirmLabel={t('Confirmer la suppression', 'Confirm deletion')}
+          onConfirm={() => {
+            setBusy(true);
+            void remove('bookings', existing.id).then(() => router.back());
+          }}
+        />
+      ) : null}
+    </FormScreen>
+  );
+}
+
+/** One attached file, opened in the documents tab when tapped. */
+function DocLine({ doc, onRemove }: { doc: Doc; onRemove: () => void }) {
+  const t = useT();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: color.surface, borderRadius: radius.md, padding: space.md, marginBottom: space.sm }}>
+      <Icon name={doc.mime === 'application/pdf' ? 'file' : 'image'} color={color.inkSoft} />
+      <Pressable style={{ flex: 1 }} onPress={() => router.push({ pathname: '/documents', params: { open: doc.id } })}>
+        <T variant="label" numberOfLines={1}>
+          {doc.name || t('Justificatif', 'Receipt')}
+        </T>
+      </Pressable>
+      <TextLink label={t('Retirer', 'Remove')} onPress={onRemove} tint={color.negative} />
+    </View>
+  );
+}

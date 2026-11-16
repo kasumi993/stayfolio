@@ -1,0 +1,308 @@
+/**
+ * The calculation engine. Pure functions over `Data`: no I/O, no React.
+ *
+ * One model covers every arrangement:
+ *   - each party has a share of the revenue and a share of the expenses;
+ *   - I may take a commission on each booking before the revenue is shared.
+ *
+ *   Owned by me alone        me 100 % / 100 %, commission 0
+ *   Partnership 60/40        me 60 % / 60 %, partner 40 % / 40 %
+ *   Managed for an owner     owner 100 % / 100 %, me 0 %, commission 13 %
+ *
+ * Anything unusual is handled per row: a booking can carry its own commission
+ * rate, an expense can be charged to a single party or marked private.
+ */
+import { diffDays, monthOf } from './dates';
+import type { Booking, Data, Expense, ID, Month, Party, Property, Rule, Transfer } from './types';
+
+/** Amount of a row in the account currency. */
+export const base = (x: { amount: number; fx_rate: number }): number => x.amount * x.fx_rate;
+
+export const nightsOf = (b: Booking): number =>
+  b.check_out ? Math.max(0, diffDays(b.check_in, b.check_out)) : 0;
+
+/** The month a booking counts in, according to the property's setting. */
+export const bookingMonth = (b: Booking, p: Property | undefined): Month =>
+  monthOf(p?.revenue_basis === 'received' && b.received_on ? b.received_on : b.check_in);
+
+/** Rule in force for a month. Before the first rule, the first rule applies. */
+export function ruleFor(rules: Rule[], propertyId: ID, month: Month): Rule | null {
+  const own = rules
+    .filter((r) => r.property_id === propertyId)
+    .sort((a, b) => a.effective_from.localeCompare(b.effective_from));
+  if (!own.length) return null;
+  let found = own[0];
+  for (const r of own) if (r.effective_from <= month) found = r;
+  return found;
+}
+
+export const commissionOf = (b: Booking, rule: Rule | null): number =>
+  base(b) * (b.commission_rate ?? rule?.commission_rate ?? 0);
+
+export interface PartyLine {
+  party: Party;
+  /** Share of the revenue, after commission. */
+  revenue: number;
+  /** Share of the property expenses. */
+  expenses: number;
+  /** Management commission earned (only ever non-zero for me). */
+  commission: number;
+  /** revenue − expenses + commission */
+  net: number;
+}
+
+export interface Statement {
+  revenue: number;
+  /** Property expenses that count (not private, not excluded). */
+  expenses: number;
+  net: number;
+  rent: number;
+  /** null when the period has no rent. */
+  rentCovered: boolean | null;
+  nights: number;
+  avgPerNight: number | null;
+  /** Net revenue per night needed for revenue to equal expenses. */
+  breakEvenPerNight: number | null;
+  commission: number;
+  /** My private costs: never part of the property's books. */
+  privateExpenses: number;
+  /** What the period is worth to me: my share + commission − private costs. */
+  mine: number;
+  byPlatform: Record<string, number>;
+  byCategory: Record<string, number>;
+  parties: PartyLine[];
+  bookings: Booking[];
+  /** Every expense row of the period, including private and excluded ones. */
+  expenseRows: Expense[];
+}
+
+type Period = (m: Month) => boolean;
+
+const emptyStatement = (): Statement => ({
+  revenue: 0,
+  expenses: 0,
+  net: 0,
+  rent: 0,
+  rentCovered: null,
+  nights: 0,
+  avgPerNight: null,
+  breakEvenPerNight: null,
+  commission: 0,
+  privateExpenses: 0,
+  mine: 0,
+  byPlatform: {},
+  byCategory: {},
+  parties: [],
+  bookings: [],
+  expenseRows: [],
+});
+
+const add = (rec: Record<string, number>, key: string, v: number) => {
+  rec[key] = (rec[key] ?? 0) + v;
+};
+
+function finish(s: Statement): Statement {
+  s.net = s.revenue - s.expenses;
+  s.rentCovered = s.rent > 0 ? s.revenue >= s.rent : null;
+  s.avgPerNight = s.nights > 0 ? s.revenue / s.nights : null;
+  s.breakEvenPerNight = s.nights > 0 ? s.expenses / s.nights : null;
+  return s;
+}
+
+/** Statement of one property over a period. */
+export function propertyStatement(data: Data, property: Property, inPeriod: Period): Statement {
+  const s = emptyStatement();
+  const parties = data.parties.filter((p) => p.property_id === property.id);
+  const lines = new Map<ID, PartyLine>(
+    parties.map((party) => [party.id, { party, revenue: 0, expenses: 0, commission: 0, net: 0 }]),
+  );
+  const me = parties.find((p) => p.is_me);
+
+  for (const b of data.bookings) {
+    if (b.property_id !== property.id) continue;
+    const month = bookingMonth(b, property);
+    if (!inPeriod(month)) continue;
+    const rule = ruleFor(data.rules, property.id, month);
+    const amount = base(b);
+    const commission = commissionOf(b, rule);
+    s.bookings.push(b);
+    s.revenue += amount;
+    s.nights += nightsOf(b);
+    s.commission += commission;
+    add(s.byPlatform, b.platform || 'Direct', amount);
+    for (const share of rule?.shares ?? []) {
+      const line = lines.get(share.party_id);
+      if (line) line.revenue += (amount - commission) * share.revenue;
+    }
+    if (me) lines.get(me.id)!.commission += commission;
+  }
+
+  for (const x of data.expenses) {
+    if (x.property_id !== property.id || !inPeriod(x.month)) continue;
+    s.expenseRows.push(x);
+    if (x.excluded) continue;
+    const amount = base(x);
+    if (x.scope === 'private') {
+      s.privateExpenses += amount;
+      continue;
+    }
+    s.expenses += amount;
+    add(s.byCategory, x.category, amount);
+    if (x.category === 'rent') s.rent += amount;
+    if (x.charged_to) {
+      const line = lines.get(x.charged_to);
+      if (line) line.expenses += amount;
+    } else {
+      for (const share of ruleFor(data.rules, property.id, x.month)?.shares ?? []) {
+        const line = lines.get(share.party_id);
+        if (line) line.expenses += amount * share.expense;
+      }
+    }
+  }
+
+  for (const line of lines.values()) line.net = line.revenue - line.expenses + line.commission;
+  s.parties = [...lines.values()];
+  finish(s);
+  // A property with no rule set up yet is treated as fully mine.
+  const myNet = me ? lines.get(me.id)!.net : parties.length ? 0 : s.net;
+  s.mine = myNet - s.privateExpenses;
+  return s;
+}
+
+/** Statement across every active property, plus my general costs. */
+export function portfolioStatement(data: Data, inPeriod: Period): Statement {
+  const s = emptyStatement();
+  for (const property of data.properties) {
+    if (property.archived) continue;
+    const p = propertyStatement(data, property, inPeriod);
+    s.revenue += p.revenue;
+    s.expenses += p.expenses;
+    s.rent += p.rent;
+    s.nights += p.nights;
+    s.commission += p.commission;
+    s.privateExpenses += p.privateExpenses;
+    s.mine += p.mine;
+    for (const [k, v] of Object.entries(p.byPlatform)) add(s.byPlatform, k, v);
+    for (const [k, v] of Object.entries(p.byCategory)) add(s.byCategory, k, v);
+    s.bookings.push(...p.bookings);
+    s.expenseRows.push(...p.expenseRows);
+  }
+  for (const x of data.expenses) {
+    if (x.property_id !== null || !inPeriod(x.month)) continue;
+    s.expenseRows.push(x);
+    if (x.excluded) continue;
+    s.privateExpenses += base(x);
+    s.mine -= base(x);
+  }
+  return finish(s);
+}
+
+/** Statement for a property, or for the whole portfolio when `propertyId` is null. */
+export function statement(data: Data, propertyId: ID | null, inPeriod: Period): Statement {
+  if (propertyId === null) return portfolioStatement(data, inPeriod);
+  const property = data.properties.find((p) => p.id === propertyId);
+  return property ? propertyStatement(data, property, inPeriod) : emptyStatement();
+}
+
+export const monthStatement = (data: Data, propertyId: ID | null, month: Month): Statement =>
+  statement(data, propertyId, (m) => m === month);
+
+export interface SeriesPoint {
+  month: Month;
+  revenue: number;
+  expenses: number;
+  net: number;
+  /** Net result accumulated since the very first entry, as in the Excel dashboard. */
+  cumulative: number;
+  nights: number;
+  rentCovered: boolean | null;
+  mine: number;
+}
+
+/** One point per month, with the running total carried in from earlier months. */
+export function series(data: Data, propertyId: ID | null, months: Month[]): SeriesPoint[] {
+  if (!months.length) return [];
+  let cumulative = statement(data, propertyId, (m) => m < months[0]).net;
+  return months.map((month) => {
+    const s = monthStatement(data, propertyId, month);
+    cumulative += s.net;
+    return {
+      month,
+      revenue: s.revenue,
+      expenses: s.expenses,
+      net: s.net,
+      cumulative,
+      nights: s.nights,
+      rentCovered: s.rentCovered,
+      mine: s.mine,
+    };
+  });
+}
+
+export interface Balance {
+  party: Party;
+  /** What the party has earned so far: their line's net. */
+  entitled: number;
+  /** Booking payouts the party received. */
+  received: number;
+  /** Property expenses the party paid out of pocket. */
+  paid: number;
+  transfersIn: number;
+  transfersOut: number;
+  /** Cash the party holds from the property: received − paid + in − out. */
+  held: number;
+  /** entitled − held. Positive: the party is owed money. Negative: they owe. */
+  balance: number;
+}
+
+/**
+ * Who owes whom on a property, over a period (all time by default).
+ * The balances of all parties always add up to zero.
+ */
+export function balances(data: Data, propertyId: ID, inPeriod: Period = () => true): Balance[] {
+  const property = data.properties.find((p) => p.id === propertyId);
+  if (!property) return [];
+  const s = propertyStatement(data, property, inPeriod);
+  const me = s.parties.find((l) => l.party.is_me)?.party.id ?? null;
+  const who = (id: ID | null) => id ?? me;
+
+  return s.parties.map((line) => {
+    const id = line.party.id;
+    const received = s.bookings
+      .filter((b) => who(b.received_by ?? property.payout_party_id) === id)
+      .reduce((t, b) => t + base(b), 0);
+    const paid = s.expenseRows
+      .filter((x) => !x.excluded && x.scope === 'property' && who(x.paid_by) === id)
+      .reduce((t, x) => t + base(x), 0);
+    const transfers = data.transfers.filter(
+      (t: Transfer) => t.property_id === propertyId && inPeriod(monthOf(t.date)),
+    );
+    const transfersIn = transfers.filter((t) => t.to_party === id).reduce((t, x) => t + x.amount, 0);
+    const transfersOut = transfers.filter((t) => t.from_party === id).reduce((t, x) => t + x.amount, 0);
+    const held = received - paid + transfersIn - transfersOut;
+    return {
+      party: line.party,
+      entitled: line.net,
+      received,
+      paid,
+      transfersIn,
+      transfersOut,
+      held,
+      balance: line.net - held,
+    };
+  });
+}
+
+/** First and last month that hold any entry, or null when there is none. */
+export function dataSpan(data: Data, propertyId: ID | null): { first: Month; last: Month } | null {
+  const months: Month[] = [];
+  const byId = new Map(data.properties.map((p) => [p.id, p]));
+  for (const b of data.bookings)
+    if (propertyId === null || b.property_id === propertyId)
+      months.push(bookingMonth(b, byId.get(b.property_id)));
+  for (const x of data.expenses)
+    if (propertyId === null || x.property_id === propertyId) months.push(x.month);
+  if (!months.length) return null;
+  months.sort();
+  return { first: months[0], last: months[months.length - 1] };
+}
