@@ -61,7 +61,7 @@ export default function ShareScreen() {
     return (
       <FormScreen title={t('Relevé publié', 'Statement published')}>
         <Notice tone="positive" icon="check" text={t('Toute personne qui a ce lien peut lire ce relevé, et seulement ce relevé. Tu peux le retirer à tout moment depuis la fiche du bien.', 'Anyone with this link can read this statement, and only this statement. You can withdraw it at any time from the property page.')} />
-        <View style={{ backgroundColor: color.surface, borderRadius: radius.lg, padding: space.lg }}>
+        <View style={{ borderWidth: 1, borderColor: color.line, borderRadius: radius.lg, padding: space.lg }}>
           <T variant="label" selectable>
             {link}
           </T>
@@ -88,7 +88,7 @@ export default function ShareScreen() {
           <Choice value={partyId} onChange={setPartyId} options={others.map((p) => ({ value: p.id, label: p.name }))} />
         </View>
       ) : null}
-      <View style={{ backgroundColor: color.surface, borderRadius: radius.lg, padding: space.lg, gap: space.md }}>
+      <View style={{ borderWidth: 1, borderColor: color.line, borderRadius: radius.lg, padding: space.lg, gap: space.md }}>
         <View>
           <Label>{t('Du mois de', 'From')}</Label>
           <Stepper label={monthLabel(from, locale)} onPrev={() => setFrom(addMonths(from, -1))} onNext={() => setFrom(addMonths(from, 1) > to ? to : addMonths(from, 1))} />
@@ -99,7 +99,7 @@ export default function ShareScreen() {
         </View>
       </View>
       {hasCommission ? (
-        <View style={{ backgroundColor: color.surface, borderRadius: radius.lg, padding: space.lg }}>
+        <View style={{ borderWidth: 1, borderColor: color.line, borderRadius: radius.lg, padding: space.lg }}>
           <Toggle
             value={showCommission}
             onChange={setShowCommission}

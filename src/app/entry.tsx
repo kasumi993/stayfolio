@@ -182,7 +182,7 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
       title={existing ? t('Dépense', 'Expense') : t('Nouvelle dépense', 'New expense')}
       footer={<Button label={t('Enregistrer', 'Save')} onPress={submit} busy={busy} disabled={value === null || value === 0} />}>
       {existing?.recurring_id ? (
-        <View style={{ backgroundColor: color.surface, borderRadius: radius.lg, padding: space.lg }}>
+        <View style={{ borderWidth: 1, borderColor: color.line, borderRadius: radius.lg, padding: space.lg }}>
           <Toggle
             value={excluded}
             onChange={setExcluded}
@@ -218,7 +218,7 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
           <DocLine key={d.id} doc={d} onRemove={() => void removeDoc(d)} />
         ))}
         {file ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: color.surface, borderRadius: radius.md, padding: space.sm, marginBottom: space.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, borderWidth: 1, borderColor: color.line, borderRadius: radius.md, padding: space.sm, marginBottom: space.sm }}>
             {file.base64 ? <Image source={{ uri: `data:${file.mime};base64,${file.base64}` }} style={{ width: 56, height: 56, borderRadius: radius.sm }} contentFit="cover" /> : <Icon name="file" />}
             <T variant="label" style={{ flex: 1 }} numberOfLines={1}>
               {file.name}
@@ -409,7 +409,7 @@ function BookingForm({ id }: { id?: string }) {
 function DocLine({ doc, onRemove }: { doc: Doc; onRemove: () => void }) {
   const t = useT();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: color.surface, borderRadius: radius.md, padding: space.md, marginBottom: space.sm }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, borderWidth: 1, borderColor: color.line, borderRadius: radius.md, padding: space.md, marginBottom: space.sm }}>
       <Icon name={doc.mime === 'application/pdf' ? 'file' : 'image'} color={color.inkSoft} />
       <Pressable style={{ flex: 1 }} onPress={() => router.push({ pathname: '/documents', params: { open: doc.id } })}>
         <T variant="label" numberOfLines={1}>

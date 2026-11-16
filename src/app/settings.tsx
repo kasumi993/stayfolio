@@ -63,7 +63,7 @@ export default function SettingsScreen() {
           value={theme}
           onChange={setTheme}
           options={[
-            { value: 'pastel' as const, label: 'Pastel', dot: '#DDD5FB' },
+            { value: 'pastel' as const, label: 'Pastel', dot: '#8ED0AC' },
             { value: 'indigo' as const, label: 'Indigo', dot: '#2B2580' },
           ]}
         />

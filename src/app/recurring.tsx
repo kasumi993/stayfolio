@@ -79,7 +79,7 @@ export default function RecurringScreen() {
       <Field label={t('Libellé', 'Label')} value={description} onChangeText={setDescription} placeholder={categoryLabel(category, locale)} />
       <Field label={t('Jour du mois (1 à 28)', 'Day of the month (1 to 28)')} value={day} onChangeText={setDay} keyboardType="number-pad" />
 
-      <View style={{ backgroundColor: color.surface, borderRadius: radius.lg, padding: space.lg, gap: space.md }}>
+      <View style={{ borderWidth: 1, borderColor: color.line, borderRadius: radius.lg, padding: space.lg, gap: space.md }}>
         <View>
           <Label>{t('Premier mois', 'First month')}</Label>
           <Stepper label={monthLabel(start, locale)} onPrev={() => setStart(addMonths(start, -1))} onNext={() => setStart(addMonths(start, 1))} />
@@ -93,7 +93,7 @@ export default function RecurringScreen() {
         ) : null}
       </View>
 
-      <View style={{ backgroundColor: color.surface, borderRadius: radius.lg, padding: space.lg }}>
+      <View style={{ borderWidth: 1, borderColor: color.line, borderRadius: radius.lg, padding: space.lg }}>
         <Toggle value={isPrivate} onChange={setPrivate} label={t('Dépense privée', 'Private expense')} hint={t('À ma charge, hors des comptes du bien.', 'Mine to bear, outside the property books.')} />
       </View>
 

@@ -2,9 +2,12 @@
  * Design tokens and themes. Every colour, font and spacing value used in the
  * app comes from here, so the look can be adjusted in one place.
  *
+ * The look: a white page, thin lines, plenty of air, and soft pastel tints
+ * that carry meaning (green = income, rose = expenses, blue = occupancy).
+ *
  * Two themes share the same token names:
- *   - `pastel` (default): soft tinted panels with dark text;
- *   - `indigo`: deep coloured panels with light text and a mango accent.
+ *   - `pastel` (default): sage, sky, blush and butter on white;
+ *   - `indigo`: the same layout with stronger, deeper colours.
  *
  * How switching works: `color` is one shared object. `applyTheme` swaps its
  * values, and the root layout re-creates the screens (see src/app/_layout.tsx),
@@ -20,8 +23,12 @@ interface Theme {
     ink: string;
     inkSoft: string;
     inkFaint: string;
+    /** Page background. */
     paper: string;
+    /** Inputs and floating panels. */
     surface: string;
+    /** Quiet fills: the sidebar, pressed states, empty tracks. */
+    sunken: string;
     line: string;
     lineStrong: string;
     /** The action of the moment: main buttons, the "+" button. */
@@ -34,94 +41,111 @@ interface Theme {
     noticeSoft: string;
     white: string;
     whiteSoft: string;
-    /** Text and icons on the coloured header panels ("hero"). */
-    onHero: string;
-    onHeroSoft: string;
-    /** Empty track of bars and free nights, on a hero. */
-    heroTrack: string;
-    /** Filled part of the revenue bar, on a hero. */
-    heroBar: string;
-    /** Small highlights on a hero: the "reached" tick, the brand name. */
-    heroMark: string;
-    /** A chosen chip or calendar day. */
+    /** A chosen chip, calendar day or menu entry. */
     selected: string;
     onSelected: string;
     selectedBorder: string;
+    /** Charts. */
     chartIncome: string;
     chartExpense: string;
+    chartLine: string;
+    ring: string;
+    /** Backgrounds of the key-figure tiles. */
+    tintIncome: string;
+    tintExpense: string;
+    tintOccupancy: string;
+    tintNight: string;
+    /** Dimmed backdrop behind dialogs. */
+    veil: string;
   };
-  /** Background of a property's header panel. `all` = every property together. */
-  pigment: Record<string, string>;
-  /** Stronger shade of the same pigments, for small dots and swatches. */
-  dot: Record<string, string>;
+  /** A soft tint and a stronger shade per property colour. `all` = every property. */
+  pigment: Record<string, { tint: string; strong: string }>;
   platform: Record<string, string>;
 }
 
 const themes = {
   pastel: {
     color: {
-      ink: '#352F4D',
-      inkSoft: '#6C6585',
-      inkFaint: '#A49EB8',
-      paper: '#FAF7FC',
+      ink: '#22252A',
+      inkSoft: '#646A73',
+      inkFaint: '#A1A6AE',
+      paper: '#FFFFFF',
       surface: '#FFFFFF',
-      line: '#EEE8F4',
-      lineStrong: '#DAD1E8',
-      accent: '#FFC8A2',
-      accentInk: '#4F2A12',
-      positive: '#2E8B6C',
-      positiveSoft: '#DFF4EB',
-      negative: '#C2476A',
-      negativeSoft: '#FCE6EC',
-      noticeSoft: '#FFF2D9',
+      sunken: '#F6F7F5',
+      line: '#ECEEEC',
+      lineStrong: '#D8DBD8',
+      accent: '#CDEBD8',
+      accentInk: '#17452E',
+      positive: '#2C8A5C',
+      positiveSoft: '#E5F4EA',
+      negative: '#CF5068',
+      negativeSoft: '#FCEAEE',
+      noticeSoft: '#FDF5DC',
       white: '#FFFFFF',
-      whiteSoft: 'rgba(255,255,255,0.8)',
-      onHero: '#352F4D',
-      onHeroSoft: 'rgba(53,47,77,0.7)',
-      heroTrack: 'rgba(53,47,77,0.1)',
-      heroBar: '#FFFFFF',
-      heroMark: '#352F4D',
-      selected: '#E3DBFB',
-      onSelected: '#352F4D',
-      selectedBorder: '#B7A8F0',
-      chartIncome: '#FFB48A',
-      chartExpense: '#B9ABEB',
+      whiteSoft: 'rgba(255,255,255,0.82)',
+      selected: '#E5F4EA',
+      onSelected: '#17452E',
+      selectedBorder: '#8ECDA8',
+      chartIncome: '#8ED0AC',
+      chartExpense: '#F2A9B8',
+      chartLine: '#7FB2EA',
+      ring: '#7FB2EA',
+      tintIncome: '#E8F5EC',
+      tintExpense: '#FCECEF',
+      tintOccupancy: '#E6F0FB',
+      tintNight: '#FDF4D8',
+      veil: 'rgba(34,37,42,0.32)',
     },
-    pigment: { indigo: '#DDD5FB', bissap: '#FAD4E1', lagoon: '#CBEDE8', baobab: '#DDECC9', laterite: '#FCDCC6', all: '#E4DCF5' },
-    dot: { indigo: '#A692F0', bissap: '#EE8DAE', lagoon: '#62C9BE', baobab: '#A3C777', laterite: '#F2A374', all: '#8E86A8' },
-    platform: { airbnb: '#F78FA9', booking: '#8DAEF6', direct: '#F5BE5B', other: '#B5AFC9' },
+    pigment: {
+      indigo: { tint: '#E6F0FB', strong: '#7FB2EA' },
+      bissap: { tint: '#FCECEF', strong: '#EE9BAD' },
+      lagoon: { tint: '#E3F4EE', strong: '#6CC5A9' },
+      baobab: { tint: '#FDF4D8', strong: '#E6C45C' },
+      laterite: { tint: '#F8EDE3', strong: '#DDAE84' },
+      all: { tint: '#F1F2F0', strong: '#9AA0A8' },
+    },
+    platform: { airbnb: '#F2A9B8', booking: '#8DB9EE', direct: '#EBCB6B', other: '#C7CBD1' },
   },
   indigo: {
     color: {
       ink: '#17143A',
       inkSoft: '#55527A',
       inkFaint: '#9997B5',
-      paper: '#F3F1F8',
+      paper: '#FFFFFF',
       surface: '#FFFFFF',
-      line: '#E2DEEE',
+      sunken: '#F5F4FA',
+      line: '#E6E3F0',
       lineStrong: '#CBC6DE',
-      accent: '#FFB01F',
-      accentInk: '#3A2600',
+      accent: '#2B2580',
+      accentInk: '#FFFFFF',
       positive: '#0B8A66',
       positiveSoft: '#DDF3EB',
       negative: '#C4234C',
       negativeSoft: '#FBE3E9',
       noticeSoft: '#FFF1D1',
       white: '#FFFFFF',
-      whiteSoft: 'rgba(255,255,255,0.8)',
-      onHero: '#FFFFFF',
-      onHeroSoft: 'rgba(255,255,255,0.74)',
-      heroTrack: 'rgba(255,255,255,0.22)',
-      heroBar: '#FFB01F',
-      heroMark: '#FFB01F',
+      whiteSoft: 'rgba(255,255,255,0.82)',
       selected: '#17143A',
       onSelected: '#FFFFFF',
       selectedBorder: '#17143A',
       chartIncome: '#FFB01F',
-      chartExpense: '#2E2A55',
+      chartExpense: '#2B2580',
+      chartLine: '#C4234C',
+      ring: '#0C6470',
+      tintIncome: '#FFF3D6',
+      tintExpense: '#E9E7F7',
+      tintOccupancy: '#E0F1F3',
+      tintNight: '#F6E6EC',
+      veil: 'rgba(23,20,58,0.4)',
     },
-    pigment: { indigo: '#2B2580', bissap: '#8C1D4F', lagoon: '#0C6470', baobab: '#3C5A2B', laterite: '#A34427', all: '#1D1A45' },
-    dot: { indigo: '#2B2580', bissap: '#8C1D4F', lagoon: '#0C6470', baobab: '#3C5A2B', laterite: '#A34427', all: '#1D1A45' },
+    pigment: {
+      indigo: { tint: '#E9E7F7', strong: '#2B2580' },
+      bissap: { tint: '#F6E6EC', strong: '#8C1D4F' },
+      lagoon: { tint: '#E0F1F3', strong: '#0C6470' },
+      baobab: { tint: '#E8F0E1', strong: '#3C5A2B' },
+      laterite: { tint: '#F7E9E3', strong: '#A34427' },
+      all: { tint: '#EFEEF5', strong: '#55527A' },
+    },
     platform: { airbnb: '#FF6B8A', booking: '#6C9BFF', direct: '#FFB01F', other: '#B9B6D3' },
   },
 } satisfies Record<string, Theme>;
@@ -145,24 +169,40 @@ export function applyTheme(name: ThemeName): void {
 /** Keys a property can pick as its colour. Stored on the property, theme-independent. */
 export const pigmentKeys = ['indigo', 'bissap', 'lagoon', 'baobab', 'laterite'];
 
-/** Header-panel colour of a property (or of "all properties" when no key is given). */
-export const pigmentOf = (key?: string): string => active.pigment[key ?? 'all'] ?? active.pigment.indigo;
+const pigment = (key?: string) => active.pigment[key ?? 'all'] ?? active.pigment.indigo;
 
-/** The same pigment, strong enough for a small dot. */
-export const pigmentDot = (key?: string): string => active.dot[key ?? 'all'] ?? active.dot.indigo;
+/** Soft background tint of a property (or of "all properties" when no key is given). */
+export const pigmentOf = (key?: string): string => pigment(key).tint;
+
+/** The same pigment, strong enough for a small dot or a chart. */
+export const pigmentDot = (key?: string): string => pigment(key).strong;
 
 export const platformColor = (platform: string): string => active.platform[platform.toLowerCase()] ?? active.platform.other;
 
+/** Fixed order of soft colours for breakdowns (expense categories…). */
+export const seriesColors = (): string[] => [
+  color.chartExpense,
+  color.chartLine,
+  color.chartIncome,
+  pigmentDot('baobab'),
+  pigmentDot('laterite'),
+  pigmentDot('lagoon'),
+  color.inkFaint,
+];
+
 export const font = {
-  display: 'BricolageGrotesque_700Bold',
-  displayMedium: 'BricolageGrotesque_600SemiBold',
-  text: 'HankenGrotesk_400Regular',
-  textMedium: 'HankenGrotesk_500Medium',
-  textBold: 'HankenGrotesk_600SemiBold',
+  display: 'PlusJakartaSans_600SemiBold',
+  text: 'PlusJakartaSans_400Regular',
+  textMedium: 'PlusJakartaSans_500Medium',
+  textBold: 'PlusJakartaSans_600SemiBold',
 } as const;
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
-export const radius = { sm: 10, md: 14, lg: 22, xl: 30, pill: 999 } as const;
+export const radius = { sm: 8, md: 12, lg: 16, xl: 20, pill: 999 } as const;
 
-/** Content never stretches wider than a large phone, even in a desktop browser. */
+/** Forms and reading pages never stretch wider than this. */
 export const maxWidth = 560;
+/** Width of the content area on a large screen. */
+export const pageWidth = 1120;
+/** From this window width up, the app uses its desktop layout. */
+export const wideFrom = 960;

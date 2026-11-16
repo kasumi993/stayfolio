@@ -2,23 +2,20 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { cloudConfigured } from '@/data/supabase';
 import { useStore } from '@/data/store';
+import { cloudConfigured } from '@/data/supabase';
 import { useT } from '@/i18n';
 import { Button, Notice, TextLink } from '@/ui/controls';
 import { Field } from '@/ui/fields';
-import { Column } from '@/ui/layout';
-import { Nights } from '@/ui/charts';
+import { useWide } from '@/ui/layout';
+import { Logo } from '@/ui/Logo';
 import { T } from '@/ui/Text';
-import { color, pigmentOf, radius, space } from '@/ui/theme';
-import { sampleData } from '@/data/demo';
-import { currentMonth } from '@/core/dates';
-
-const preview = sampleData();
+import { color, radius, space } from '@/ui/theme';
 
 export default function Welcome() {
   const t = useT();
   const insets = useSafeAreaInsets();
+  const wide = useWide();
   const backend = useStore((s) => s.backend);
   const enterDemo = useStore((s) => s.enterDemo);
   const [mode, setMode] = useState<'in' | 'up'>('in');
@@ -56,20 +53,16 @@ export default function Welcome() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: color.paper }}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + space.xxl }}>
-        <View style={{ backgroundColor: pigmentOf('indigo'), paddingTop: insets.top + space.xxl, paddingBottom: space.xxl, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
-          <Column>
-            <T variant="label" color={color.heroMark}>
-              Stayfolio
-            </T>
-            <T variant="title" color={color.onHero} style={{ marginTop: space.sm, marginBottom: space.xl }}>
-              {t('Les comptes de tes locations, sans le tableur.', 'Your rental books, without the spreadsheet.')}
-            </T>
-            <Nights bookings={preview.bookings.filter((b) => b.property_id === preview.properties[0].id)} month={currentMonth()} />
-          </Column>
-        </View>
-        <Column>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: wide ? color.sunken : color.paper }}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: wide ? 'center' : 'flex-start', alignItems: 'center', paddingTop: insets.top + (wide ? space.xl : 56), paddingBottom: insets.bottom + space.xxl, paddingHorizontal: 20 }}>
+        <View style={{ width: '100%', maxWidth: 420, backgroundColor: color.paper, borderRadius: radius.xl, padding: wide ? 36 : 0, borderWidth: wide ? 1 : 0, borderColor: color.line }}>
+          <Logo size={30} />
+          <T variant="title" style={{ marginTop: space.xl }}>
+            {t('Les comptes de mes locations', 'My rental books')}
+          </T>
+          <T color={color.inkSoft} style={{ marginTop: space.xs }}>
+            {t('Revenus, dépenses, partages et reçus, au même endroit.', 'Income, expenses, splits and receipts, in one place.')}
+          </T>
           <View style={{ gap: space.lg, marginTop: space.xl }}>
             {cloudConfigured ? (
               <>
@@ -92,7 +85,7 @@ export default function Welcome() {
             )}
             <Button tone="quiet" label={t('Explorer la démo', 'Explore the demo')} onPress={() => void enterDemo()} />
           </View>
-        </Column>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -9,6 +9,7 @@ import { base } from '@/core/calc';
 import type { Doc } from '@/core/types';
 import { useData, useStore } from '@/data/store';
 import { useMoney, useSelection } from '@/features/hooks';
+import { PageHeader } from '@/features/PageHeader';
 import { setPendingFile } from '@/features/pendingFile';
 import { categoryLabel, dayLabel, monthLabel, useLocale, useT } from '@/i18n';
 import { type PickedFile, pickDocument, takePhoto } from '@/platform/pick';
@@ -57,14 +58,9 @@ export default function DocumentsScreen() {
   }
 
   return (
-    <Screen>
-      <T variant="title" style={{ marginTop: space.md }}>
-        {t('Reçus et factures', 'Receipts and invoices')}
-      </T>
-      <T color={color.inkSoft} style={{ marginTop: space.xs }}>
-        {property ? property.name : t('Tous les biens', 'All properties')}
-      </T>
-      <View style={{ flexDirection: 'row', gap: space.sm, marginVertical: space.lg }}>
+    <Screen reading>
+      <PageHeader title={t('Reçus et factures', 'Receipts and invoices')} subtitle={property ? property.name : t('Tous les biens', 'All properties')} />
+      <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.lg }}>
         <Button compact icon="camera" label={t('Photographier', 'Take a photo')} onPress={() => void add(takePhoto)} style={{ flex: 1 }} />
         <Button compact tone="quiet" icon="file" label={t('Joindre un fichier', 'Attach a file')} onPress={() => void add(pickDocument)} style={{ flex: 1 }} />
       </View>
@@ -156,7 +152,7 @@ function Viewer({ doc, onClose }: { doc: Doc | null; onClose: () => void }) {
       {doc ? (
         <View style={{ gap: space.md }}>
           {doc.mime.startsWith('image/') && url ? (
-            <Image source={{ uri: url }} style={{ width: '100%', aspectRatio: 0.75, borderRadius: radius.lg, backgroundColor: color.line }} contentFit="contain" />
+            <Image source={{ uri: url }} style={{ width: '100%', aspectRatio: 0.75, borderRadius: radius.lg, backgroundColor: color.sunken }} contentFit="contain" />
           ) : url === null ? (
             <T color={color.inkSoft}>{t('Chargement…', 'Loading…')}</T>
           ) : null}

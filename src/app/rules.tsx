@@ -95,7 +95,7 @@ export default function RulesScreen() {
       </T>
 
       {parties.map((p) => (
-        <View key={p.id} style={{ backgroundColor: color.surface, borderRadius: radius.lg, padding: space.lg, gap: space.md }}>
+        <View key={p.id} style={{ borderWidth: 1, borderColor: color.line, borderRadius: radius.lg, padding: space.lg, gap: space.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <T variant="heading">{p.is_me ? t('Moi', 'Me') : p.name}</T>
             {!p.is_me ? <TextLink label={t('Retirer', 'Remove')} tint={color.negative} onPress={() => setParties(parties.filter((x) => x.id !== p.id))} /> : null}

@@ -30,7 +30,7 @@ export function round(value: number, decimals = 0): number {
 export function formatNumber(value: number, decimals = 0): string {
   const fixed = Math.abs(round(value, decimals)).toFixed(decimals);
   const [int, frac] = fixed.split('.');
-  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
   const sign = round(value, decimals) < 0 ? '−' : '';
   return sign + grouped + (frac ? ',' + frac : '');
 }
@@ -67,7 +67,7 @@ export const formatPercent = (fraction: number): string =>
  */
 export function evalAmount(input: string): number | null {
   const src = input
-    .replace(/[\s  ]/g, '')
+    .replace(/[\s \u00a0]/g, '')
     .replace(/,/g, '.')
     .replace(/[×xX]/g, '*')
     .replace(/[÷:]/g, '/')

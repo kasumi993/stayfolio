@@ -15,6 +15,9 @@ docs/ARCHITECTURE.md first: they are short.
   not compute money.
 - Types in `src/core/types.ts` mirror database columns one-to-one.
 - Screens talk to `useStore` only, never to Supabase directly.
+- Every screen must work at both widths: build it with `Screen`, `Cols`,
+  `FormScreen` and `useWide` from `src/ui/layout.tsx`, and look at it at 390 px
+  and 1440 px before finishing.
 - Colours, fonts and spacing come from `src/ui/theme.ts`. Read `color.*` inside
   components (at render), never in a module-level constant: themes swap its values.
 - User-facing text is written in French and English side by side: `t('…', '…')`.

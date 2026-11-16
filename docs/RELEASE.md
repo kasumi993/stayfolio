@@ -3,7 +3,9 @@
 ## Web (also the "install on iPhone today" route)
 
 The web build is a static site (`npx expo export --platform web` → `dist/`).
-`vercel.json` holds the build settings. Once deployed:
+`vercel.json` holds the build settings. The site is on Vercel at
+<https://stayfolio-gamma.vercel.app>; every push to `main` redeploys it.
+For another address:
 
 1. Put the address in `.env` as `EXPO_PUBLIC_WEB_URL` (shared statement links
    and password-reset emails point there) and redeploy.

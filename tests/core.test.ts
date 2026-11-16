@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-import { balances, monthStatement, propertyStatement, series, statement } from '../src/core/calc';
+import { balances, monthStatement, occupancy, propertyStatement, series, statement } from '../src/core/calc';
 import { addMonths, dateInMonth, diffDays, excelSerialToISO, monthRange } from '../src/core/dates';
 import { planImport } from '../src/core/importWorkbook';
 import { evalAmount, formatMoney, formatNumber } from '../src/core/money';
@@ -41,8 +41,8 @@ describe('money', () => {
     expect(evalAmount('1/0')).toBeNull();
   });
   it('formats amounts', () => {
-    expect(formatNumber(1234567.4)).toBe('1 234 567');
-    expect(formatMoney(-450000, 'XOF')).toBe('−450 000 F');
+    expect(formatNumber(1234567.4)).toBe('1\u00a0234\u00a0567');
+    expect(formatMoney(-450000, 'XOF')).toBe('−450\u00a0000 F');
     expect(formatMoney(226.9, 'EUR')).toBe('226,90 €');
   });
 });
@@ -74,6 +74,16 @@ describe('calc', () => {
     const bal = balances(d, 'p');
     expect(bal.find((b) => b.party.id === 'ow')!.balance).toBe(117000);
     expect(bal.reduce((t, b) => t + b.balance, 0)).toBeCloseTo(0);
+  });
+
+  it('counts occupancy night by night, splitting stays across months', () => {
+    const d = managed();
+    // 4 + 2 nights in March out of 31.
+    expect(occupancy(d, 'p', ['2026-03'])).toMatchObject({ booked: 6, available: 31 });
+    d.bookings.push({ ...d.bookings[0], id: 'b9', check_in: '2026-03-30', check_out: '2026-04-03' });
+    expect(occupancy(d, 'p', ['2026-03']).booked).toBe(8);
+    expect(occupancy(d, 'p', ['2026-04']).booked).toBe(2);
+    expect(occupancy(d, null, ['2026-03', '2026-04']).available).toBe(61);
   });
 
   it('applies rule changes from their effective month only', () => {

@@ -22,14 +22,14 @@ export function Label({ children }: { children: string }) {
 /** Base look of every input. A function, so it follows the active theme. */
 const inputStyle = () =>
   ({
-    minHeight: 50,
+    minHeight: 46,
     borderRadius: radius.md,
     backgroundColor: color.surface,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: color.line,
-    paddingHorizontal: space.lg,
+    paddingHorizontal: 14,
     fontFamily: font.text,
-    fontSize: 16,
+    fontSize: 15,
     color: color.ink,
   }) as const;
 
@@ -57,7 +57,7 @@ export function Field({ label, suggestions, style, ...rest }: FieldProps) {
       {matches.length ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
           {matches.map((s) => (
-            <Pressable key={s} onPress={() => rest.onChangeText?.(s)} style={{ paddingHorizontal: 12, height: 32, justifyContent: 'center', borderRadius: radius.pill, backgroundColor: color.line }}>
+            <Pressable key={s} onPress={() => rest.onChangeText?.(s)} style={{ paddingHorizontal: 10, height: 30, justifyContent: 'center', borderRadius: radius.sm, backgroundColor: color.sunken }}>
               <T variant="small">{s}</T>
             </Pressable>
           ))}
@@ -90,7 +90,7 @@ export function AmountField({ label, value, onChangeText, currency, autoFocus }:
         keyboardType="numbers-and-punctuation"
         placeholder="0"
         placeholderTextColor={color.inkFaint}
-        style={[inputStyle(), { minHeight: 68, fontFamily: font.display, fontSize: 32, borderColor: invalid ? color.negative : color.line }]}
+        style={[inputStyle(), { minHeight: 60, fontFamily: font.display, fontSize: 26, borderColor: invalid ? color.negative : color.line }]}
       />
       {invalid || isFormula(value) || !value ? (
         <T variant="small" color={invalid ? color.negative : color.inkSoft} style={{ marginTop: 6 }}>
@@ -110,7 +110,7 @@ export function Calendar({ value, onChange, rangeStart }: { value: string; onCha
   const offset = (new Date(`${first}T12:00:00`).getDay() + 6) % 7;
   const cells: (string | null)[] = [...Array(offset).fill(null), ...Array.from({ length: daysInMonth(month) }, (_, i) => addDays(first, i))];
   return (
-    <View style={{ backgroundColor: color.surface, borderRadius: radius.lg, padding: space.md, marginTop: space.sm }}>
+    <View style={{ borderWidth: 1, borderColor: color.line, borderRadius: radius.lg, padding: space.md, marginTop: space.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <IconButton icon="left" label="Mois précédent" onPress={() => setMonth(addMonths(month, -1))} />
         <T variant="bodyBold">{monthLabel(month, locale)}</T>
@@ -130,7 +130,7 @@ export function Calendar({ value, onChange, rangeStart }: { value: string; onCha
           return (
             <Pressable key={i} disabled={!d} onPress={() => d && onChange(d)} style={{ width: `${100 / 7}%`, height: 42, alignItems: 'center', justifyContent: 'center' }}>
               {d ? (
-                <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? color.selected : inRange ? color.line : 'transparent' }}>
+                <View style={{ width: 36, height: 36, borderRadius: radius.sm + 2, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? color.selected : inRange ? color.sunken : 'transparent', borderWidth: selected ? 1 : 0, borderColor: color.selectedBorder }}>
                   <T variant="label" color={selected ? color.onSelected : d === today() ? color.negative : color.ink}>
                     {Number(d.slice(8))}
                   </T>

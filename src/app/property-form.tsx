@@ -85,7 +85,7 @@ export default function PropertyForm() {
         await save('parties', partner ? [me, partner] : [me]);
         await save('rules', rule);
         setProperty(property.id);
-        router.replace({ pathname: '/property/[id]', params: { id: property.id } });
+        router.replace({ pathname: '/property', params: { id: property.id } });
       } else router.back();
     } catch {
       setBusy(false);
@@ -101,7 +101,7 @@ export default function PropertyForm() {
         <Label>{t('Couleur', 'Colour')}</Label>
         <View style={{ flexDirection: 'row', gap: space.md }}>
           {pigmentKeys.map((key) => (
-            <Pressable key={key} accessibilityLabel={key} onPress={() => setTint(key)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: pigmentDot(key), alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable key={key} accessibilityLabel={key} onPress={() => setTint(key)} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: pigmentDot(key), alignItems: 'center', justifyContent: 'center' }}>
               {tint === key ? <Icon name="check" color={color.white} weight={3} /> : null}
             </Pressable>
           ))}
@@ -162,7 +162,7 @@ export default function PropertyForm() {
             onConfirm={() => {
               setBusy(true);
               setProperty(null);
-              void remove('properties', existing.id).then(() => router.dismissTo('/properties'));
+              void remove('properties', existing.id).then(() => router.replace('/properties'));
             }}
           />
         </>

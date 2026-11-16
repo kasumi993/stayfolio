@@ -10,6 +10,7 @@ import type { SharedStatement } from '@/core/sharing';
 import { type Locale, type Translate, categoryLabel, dayLabel, monthLabel } from '@/i18n';
 import { Row, SectionTitle } from '@/ui/controls';
 import { Block } from '@/ui/layout';
+import { Logo } from '@/ui/Logo';
 import { T } from '@/ui/Text';
 import { color, pigmentOf, radius, space } from '@/ui/theme';
 
@@ -24,18 +25,19 @@ export function StatementView({ statement: s, locale, t }: { statement: SharedSt
   const sharesAll = Math.abs(total.shareExpenses - total.expenses) < 1;
   return (
     <View>
-      <View style={{ backgroundColor: pigmentOf(s.property.color), borderRadius: radius.xl, padding: space.xl }}>
-        <T variant="label" color={color.onHeroSoft}>
+      <Logo size={22} />
+      <View style={{ backgroundColor: pigmentOf(s.property.color), borderRadius: radius.lg, padding: space.xl, marginTop: space.xl }}>
+        <T variant="label" color={color.inkSoft}>
           {t(`Relevé pour ${s.audience}`, `Statement for ${s.audience}`)}
         </T>
-        <T variant="title" color={color.onHero} style={{ marginTop: 2 }}>
+        <T variant="title" style={{ marginTop: 2 }}>
           {s.property.name}
         </T>
-        <T color={color.onHeroSoft}>{periodLabel(s, locale)}</T>
-        <T variant="hero" color={color.onHero} style={{ marginTop: space.lg }} adjustsFontSizeToFit numberOfLines={1}>
+        <T color={color.inkSoft}>{periodLabel(s, locale)}</T>
+        <T variant="hero" tabular color={total.net < 0 ? color.negative : color.positive} style={{ marginTop: space.lg }} adjustsFontSizeToFit numberOfLines={1}>
           {money(total.net, true)}
         </T>
-        <T color={color.onHeroSoft}>
+        <T color={color.inkSoft}>
           {total.due > 0.5
             ? t(`Reste à vous verser : ${money(total.due)}`, `Still to be paid to you: ${money(total.due)}`)
             : total.due < -0.5

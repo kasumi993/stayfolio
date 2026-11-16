@@ -12,7 +12,7 @@
  * Anything unusual is handled per row: a booking can carry its own commission
  * rate, an expense can be charged to a single party or marked private.
  */
-import { diffDays, monthOf } from './dates';
+import { addDays, daysInMonth, diffDays, monthOf } from './dates';
 import type { Booking, Data, Expense, ID, Month, Party, Property, Rule, Transfer } from './types';
 
 /** Amount of a row in the account currency. */
@@ -305,4 +305,36 @@ export function dataSpan(data: Data, propertyId: ID | null): { first: Month; las
   if (!months.length) return null;
   months.sort();
   return { first: months[0], last: months[months.length - 1] };
+}
+
+export interface Occupancy {
+  /** Nights of the month with a guest, across the properties considered. */
+  booked: number;
+  /** Nights available: days of the month × number of properties. */
+  available: number;
+  /** booked / available, 0 when nothing is available. */
+  rate: number;
+}
+
+/**
+ * Occupancy of a month. Counts the nights that fall inside the month, whenever
+ * the stay started, so a booking that spans two months is split between them.
+ */
+export function occupancy(data: Data, propertyId: ID | null, months: Month[]): Occupancy {
+  const wanted = new Set(months);
+  const properties = data.properties.filter((p) => !p.archived && (propertyId === null || p.id === propertyId));
+  let booked = 0;
+  for (const property of properties) {
+    const nights = new Set<string>();
+    for (const b of data.bookings) {
+      if (b.property_id !== property.id) continue;
+      for (let i = 0; i < nightsOf(b); i++) {
+        const night = addDays(b.check_in, i);
+        if (wanted.has(monthOf(night))) nights.add(night);
+      }
+    }
+    booked += nights.size;
+  }
+  const available = properties.length * months.reduce((t, m) => t + daysInMonth(m), 0);
+  return { booked, available, rate: available ? booked / available : 0 };
 }

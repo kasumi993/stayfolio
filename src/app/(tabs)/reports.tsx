@@ -6,25 +6,26 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
-import { series, statement } from '@/core/calc';
+import { occupancy, series, statement } from '@/core/calc';
 import { currentMonth, monthsOfYear, yearOf } from '@/core/dates';
 import { AiUnavailable } from '@/data/backend';
 import { useData, useStore } from '@/data/store';
-import { Hero, HeroFacts, Stepper } from '@/features/Hero';
 import { useMoney, useSelection } from '@/features/hooks';
+import { PageHeader } from '@/features/PageHeader';
 import { categoryLabel, monthLabel, monthShort, useLocale, useT } from '@/i18n';
-import { Breakdown, Legend, YearBars } from '@/ui/charts';
-import { Button, Notice, Row, SectionTitle } from '@/ui/controls';
+import { Bars, Breakdown, Legend, Ring, Tile, Tiles, Trend } from '@/ui/charts';
+import { Button, Empty, Notice, Row, SectionTitle } from '@/ui/controls';
 import { Field } from '@/ui/fields';
 import { Icon } from '@/ui/Icon';
-import { Block, Screen } from '@/ui/layout';
+import { Block, Card, Cols, Screen, useWide } from '@/ui/layout';
 import { T } from '@/ui/Text';
-import { color, platformColor, space } from '@/ui/theme';
+import { color, platformColor, seriesColors, space } from '@/ui/theme';
 
 export default function ReportsScreen() {
   const t = useT();
   const locale = useLocale();
   const money = useMoney();
+  const wide = useWide();
   const data = useData();
   const { property } = useSelection();
   const month = useStore((s) => s.month);
@@ -35,91 +36,94 @@ export default function ReportsScreen() {
   const points = useMemo(() => series(data, id, monthsOfYear(year)), [data, id, year]);
   const total = useMemo(() => statement(data, id, (m) => yearOf(m) === year), [data, id, year]);
   const filled = points.filter((p) => p.revenue || p.expenses);
-  const last = filled[filled.length - 1];
+  // Occupancy over the months that have entries, so an unfinished year is not diluted.
+  const occ = useMemo(() => occupancy(data, id, filled.map((p) => p.month)), [data, id, filled]);
   const sorted = (rec: Record<string, number>) => Object.entries(rec).sort((a, b) => b[1] - a[1]);
+  const tints = seriesColors();
+  const result = property ? total.net : total.mine;
+  const openMonth = (m: string) => {
+    setMonth(m);
+    router.navigate('/');
+  };
 
   return (
-    <Screen
-      header={
-        <Hero>
-          <Stepper label={String(year)} onPrev={() => setYear(year - 1)} onNext={() => setYear(year + 1)} onLabelPress={() => setYear(yearOf(currentMonth()))} />
-          <T variant="title" color={color.onHero} style={{ marginTop: space.md, minHeight: 64 }}>
-            {!filled.length
-              ? t(`Rien d’enregistré en ${year}.`, `Nothing recorded in ${year}.`)
-              : property
-                ? total.net >= 0
-                  ? t(`${year} : ${money(total.net)} de résultat.`, `${year}: ${money(total.net)} in profit.`)
-                  : t(`${year} : ${money(-total.net)} restent à récupérer.`, `${year}: ${money(-total.net)} still to recover.`)
-                : total.mine >= 0
-                  ? t(`${year} me rapporte ${money(total.mine)}.`, `${year} earns me ${money(total.mine)}.`)
-                  : t(`${year} me coûte ${money(-total.mine)}.`, `${year} costs me ${money(-total.mine)}.`)}
-          </T>
-          <HeroFacts
-            facts={[
-              { label: t('Revenus', 'Income'), value: money(total.revenue) },
-              { label: t('Dépenses', 'Expenses'), value: money(total.expenses) },
-              { label: t('Nuits', 'Nights'), value: String(total.nights) },
-            ]}
-          />
-        </Hero>
-      }>
+    <Screen>
+      <PageHeader title={t(`Bilan ${year}`, `${year} report`)} stepper={{ onPrev: () => setYear(year - 1), onNext: () => setYear(year + 1), onReset: () => setYear(yearOf(currentMonth())) }} />
+
       {filled.length ? (
         <>
-          <View style={{ marginTop: space.lg, gap: space.md }}>
-            <YearBars
-              points={points.map((p) => ({ key: p.month, label: monthShort(p.month, locale), revenue: p.revenue, expenses: p.expenses }))}
-              selected={month}
-              onSelect={(m) => {
-                setMonth(m);
-                router.navigate('/');
-              }}
-            />
-            <Legend items={[{ label: t('Revenus', 'Income'), tint: color.chartIncome }, { label: t('Dépenses', 'Expenses'), tint: color.chartExpense }]} />
+          <Tiles wide={wide}>
+            {[
+              <Tile key="res" label={property ? t('Résultat', 'Result') : t('Pour moi', 'For me')} value={money(result, { sign: true })} note={property && total.parties.length > 1 ? t(`pour moi ${money(total.mine, { sign: true })}`, `for me ${money(total.mine, { sign: true })}`) : undefined} tint={result < 0 ? color.tintExpense : color.tintIncome} />,
+              <Tile key="in" label={t('Revenus', 'Income')} value={money(total.revenue)} note={t(`${total.bookings.length} versements`, `${total.bookings.length} payouts`)} tint={color.tintIncome} />,
+              <Tile key="out" label={t('Dépenses', 'Expenses')} value={money(total.expenses)} tint={color.tintExpense} />,
+              <Tile key="occ" label={t('Occupation', 'Occupancy')} value={`${Math.round(occ.rate * 100)} %`} note={t(`${occ.booked} nuits louées`, `${occ.booked} nights booked`)} tint={color.tintOccupancy} aside={<Ring value={occ.rate} size={44} stroke={6} />} />,
+            ]}
+          </Tiles>
+
+          <Cols ratio={[3, 2]}>
+            <View>
+              <SectionTitle>{t('Revenus et dépenses', 'Income and expenses')}</SectionTitle>
+              <Card>
+                <Bars points={points.map((p) => ({ key: p.month, label: monthShort(p.month, locale).slice(0, wide ? 3 : 1), income: p.revenue, expenses: p.expenses }))} selected={month} onSelect={openMonth} height={150} />
+                <View style={{ marginTop: space.md }}>
+                  <Legend items={[{ label: t('Revenus', 'Income'), tint: color.chartIncome }, { label: t('Dépenses', 'Expenses'), tint: color.chartExpense }]} />
+                </View>
+              </Card>
+            </View>
+            <View>
+              <SectionTitle>{property ? t('Résultat cumulé', 'Running result') : t('Ce que ça me rapporte, mois après mois', 'What it earns me, month after month')}</SectionTitle>
+              <Card>
+                <Trend values={filled.map((p) => (property ? p.cumulative : p.mine))} labels={[monthShort(filled[0].month, locale), monthShort(filled[filled.length - 1].month, locale)]} height={150} />
+                <T variant="small" color={color.inkSoft} style={{ marginTop: space.sm }}>
+                  {property
+                    ? t(`Depuis la première écriture du bien : ${money(filled[filled.length - 1].cumulative, { sign: true })}.`, `Since the property’s first entry: ${money(filled[filled.length - 1].cumulative, { sign: true })}.`)
+                    : t('La ligne pointillée marque zéro.', 'The dotted line marks zero.')}
+                </T>
+              </Card>
+            </View>
+          </Cols>
+
+          <Cols ratio={[3, 2]}>
+            <View>
+              <SectionTitle>{t('Mois par mois', 'Month by month')}</SectionTitle>
+              <Block>
+                {filled.map((p, i) => (
+                  <Row
+                    key={p.month}
+                    title={monthLabel(p.month, locale).split(' ')[0]}
+                    subtitle={[t(`Revenus ${money(p.revenue)}`, `Income ${money(p.revenue)}`), t(`dépenses ${money(p.expenses)}`, `expenses ${money(p.expenses)}`), p.rentCovered === null ? null : p.rentCovered ? t('loyer couvert', 'rent covered') : t('loyer non couvert', 'rent not covered')].filter(Boolean).join(', ')}
+                    value={money(property ? p.net : p.mine, { sign: true })}
+                    valueColor={(property ? p.net : p.mine) < 0 ? color.negative : color.positive}
+                    note={t(`${p.nights} nuits`, `${p.nights} nights`)}
+                    onPress={() => openMonth(p.month)}
+                    last={i === filled.length - 1}
+                  />
+                ))}
+              </Block>
+            </View>
+            <View>
+              {total.revenue ? (
+                <>
+                  <SectionTitle>{t('D’où viennent les revenus', 'Where income comes from')}</SectionTitle>
+                  <Breakdown items={sorted(total.byPlatform).map(([label, value]) => ({ label, value, tint: platformColor(label) }))} format={money} />
+                </>
+              ) : null}
+              {total.expenses ? (
+                <>
+                  <SectionTitle>{t('Où part l’argent', 'Where the money goes')}</SectionTitle>
+                  <Breakdown items={sorted(total.byCategory).map(([key, value], i) => ({ label: categoryLabel(key, locale), value, tint: tints[i % tints.length] }))} format={money} />
+                </>
+              ) : null}
+            </View>
+          </Cols>
+
+          <View style={{ maxWidth: 720 }}>
+            <Ask year={year} />
           </View>
-
-          <SectionTitle>{t('Mois par mois', 'Month by month')}</SectionTitle>
-          <Block>
-            {filled.map((p, i) => (
-              <Row
-                key={p.month}
-                title={monthLabel(p.month, locale).split(' ')[0]}
-                subtitle={[t(`${p.nights} nuits`, `${p.nights} nights`), p.rentCovered === null ? null : p.rentCovered ? t('loyer couvert', 'rent covered') : t('loyer non couvert', 'rent not covered')].filter(Boolean).join(', ')}
-                value={money(property ? p.net : p.mine, { sign: true })}
-                valueColor={(property ? p.net : p.mine) < 0 ? color.negative : color.positive}
-                note={property ? t(`cumul ${money(p.cumulative, { sign: true })}`, `running ${money(p.cumulative, { sign: true })}`) : undefined}
-                onPress={() => {
-                  setMonth(p.month);
-                  router.navigate('/');
-                }}
-                last={i === filled.length - 1}
-              />
-            ))}
-          </Block>
-          {property && last ? (
-            <T variant="small" color={color.inkSoft} style={{ marginTop: space.sm }}>
-              {t('Le cumul part de la toute première écriture du bien, comme dans le tableau de bord Excel.', 'The running total starts from the property’s very first entry, as in the Excel dashboard.')}
-            </T>
-          ) : null}
-
-          {total.revenue ? (
-            <>
-              <SectionTitle>{t('D’où viennent les revenus', 'Where income comes from')}</SectionTitle>
-              <Breakdown items={sorted(total.byPlatform).map(([label, value]) => ({ label, value, tint: platformColor(label) }))} format={money} />
-            </>
-          ) : null}
-          {total.expenses ? (
-            <>
-              <SectionTitle>{t('Où part l’argent', 'Where the money goes')}</SectionTitle>
-              <Breakdown items={sorted(total.byCategory).map(([key, value]) => ({ label: categoryLabel(key, locale), value }))} format={money} />
-            </>
-          ) : null}
-
-          <Ask year={year} />
         </>
       ) : (
-        <T color={color.inkSoft} style={{ marginTop: space.xl }}>
-          {t('Change d’année avec les flèches, ou ajoute une première écriture avec le bouton +.', 'Switch year with the arrows, or add a first entry with the + button.')}
-        </T>
+        <Empty title={t(`Rien d’enregistré en ${year}`, `Nothing recorded in ${year}`)} text={t('Change d’année avec les flèches, ou ajoute une première écriture.', 'Switch year with the arrows, or add a first entry.')} />
       )}
     </Screen>
   );
@@ -184,7 +188,7 @@ function Ask({ year }: { year: number }) {
           <Button compact tone="quiet" label={t('Résumer l’année', 'Sum up the year')} onPress={() => void ask(ideas[0])} disabled={busy} />
         </View>
         {answer ? (
-          <View style={{ flexDirection: 'row', gap: space.md, backgroundColor: color.surface, borderRadius: 18, padding: space.lg }}>
+          <View style={{ flexDirection: 'row', gap: space.md, backgroundColor: color.sunken, borderRadius: 16, padding: space.lg }}>
             <Icon name="spark" size={18} color={color.inkSoft} />
             <T style={{ flex: 1 }}>{answer}</T>
           </View>

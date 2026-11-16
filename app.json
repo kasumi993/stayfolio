@@ -45,7 +45,7 @@
     "android": {
       "package": "com.kasumi.stayfolio",
       "adaptiveIcon": {
-        "backgroundColor": "#2B2580",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false
@@ -59,7 +59,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#2B2580",
+          "backgroundColor": "#FFFFFF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 120
         }

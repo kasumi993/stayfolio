@@ -1,15 +1,22 @@
+/**
+ * The frame around the main screens: a bottom tab bar on a phone, a sidebar on
+ * a wide screen. Both offer the same four destinations and the "add" action.
+ */
 import { Tabs, router } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useStore } from '@/data/store';
+import { PropertyMenu } from '@/features/PageHeader';
 import { setPendingFile } from '@/features/pendingFile';
 import { useT } from '@/i18n';
 import { type PickedFile, pickDocument, takePhoto } from '@/platform/pick';
-import { useStore } from '@/data/store';
+import { Button, Tag } from '@/ui/controls';
 import { Icon, type IconName } from '@/ui/Icon';
-import { Sheet } from '@/ui/layout';
+import { Sheet, useWide } from '@/ui/layout';
+import { Logo } from '@/ui/Logo';
 import { T } from '@/ui/Text';
 import { color, maxWidth, radius, space } from '@/ui/theme';
 
@@ -21,45 +28,35 @@ const TABS: { name: string; icon: IconName; fr: string; en: string }[] = [
 ];
 
 export default function TabsLayout() {
+  const wide = useWide();
   return (
-    <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <TabBar {...props} />}>
+    <Tabs
+      screenOptions={{ headerShown: false, tabBarPosition: wide ? 'left' : 'bottom', sceneStyle: { backgroundColor: color.paper } }}
+      tabBar={(props) => <Navigation {...props} wide={wide} />}>
       {TABS.map((tab) => (
         <Tabs.Screen key={tab.name} name={tab.name} />
       ))}
+      {/* A property's page: part of "Places", not a destination of its own. */}
+      <Tabs.Screen name="property" />
     </Tabs>
   );
 }
 
-/** Four destinations and, in the middle, the one action used every day: add. */
-function TabBar({ state, navigateToTab }: BottomTabBarProps) {
+function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: boolean }) {
   const t = useT();
   const insets = useSafeAreaInsets();
   const [adding, setAdding] = useState(false);
   const hasProperty = useStore((s) => s.data.properties.some((p) => !p.archived));
-  const current = state.routes[state.index]?.name;
+  const demo = useStore((s) => s.backend.demo);
+  const routeName = state.routes[state.index]?.name;
+  const current = routeName === 'property' ? 'properties' : routeName;
 
-  const tab = (item: (typeof TABS)[number]) => {
-    const active = current === item.name;
-    return (
-      <Pressable
-        key={item.name}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: active }}
-        accessibilityLabel={t(item.fr, item.en)}
-        onPress={() => {
-          const route = state.routes.find((r) => r.name === item.name);
-          if (route) navigateToTab(route.key);
-        }}
-        style={{ flex: 1, alignItems: 'center', gap: 3, paddingVertical: 6 }}>
-        <Icon name={item.icon} color={active ? color.ink : color.inkFaint} weight={active ? 2.4 : 2} />
-        <T variant="small" color={active ? color.ink : color.inkFaint} style={active ? { fontFamily: 'HankenGrotesk_600SemiBold' } : undefined}>
-          {t(item.fr, item.en)}
-        </T>
-      </Pressable>
-    );
+  const goTo = (name: string) => {
+    const route = state.routes.find((r) => r.name === name);
+    if (route) navigateToTab(route.key);
   };
-
-  const go = (href: Parameters<typeof router.push>[0]) => {
+  const add = () => (hasProperty ? setAdding(true) : router.push('/property-form'));
+  const open = (href: Parameters<typeof router.push>[0]) => {
     setAdding(false);
     router.push(href);
   };
@@ -76,56 +73,107 @@ function TabBar({ state, navigateToTab }: BottomTabBarProps) {
     }
   }
 
+  const sheet = (
+    <Sheet open={adding} onClose={() => setAdding(false)} title={t('Ajouter', 'Add')}>
+      <View style={{ gap: 2 }}>
+        <AddOption icon="minus" tint={color.negative} bg={color.tintExpense} title={t('Une dépense', 'An expense')} text={t('Ménage, électricité, achat…', 'Cleaning, electricity, a purchase…')} onPress={() => open({ pathname: '/entry', params: { type: 'expense' } })} />
+        <AddOption icon="plus" tint={color.positive} bg={color.tintIncome} title={t('Un revenu', 'Income')} text={t('Un versement Airbnb, Booking ou en direct', 'A payout from Airbnb, Booking or direct')} onPress={() => open({ pathname: '/entry', params: { type: 'booking' } })} />
+        <AddOption icon="camera" bg={color.tintOccupancy} title={t('Photographier un reçu', 'Photograph a receipt')} text={t('La dépense se remplit à partir de la photo', 'The expense is filled in from the photo')} onPress={() => void attach(takePhoto)} />
+        <AddOption icon="file" bg={color.tintNight} title={t('Joindre un PDF ou une image', 'Attach a PDF or an image')} text={t('Une facture déjà enregistrée', 'An invoice already saved')} onPress={() => void attach(pickDocument)} />
+      </View>
+    </Sheet>
+  );
+
+  if (wide) {
+    return (
+      <View style={{ width: 248, backgroundColor: color.sunken, borderRightWidth: 1, borderRightColor: color.line, paddingTop: space.xl, paddingBottom: space.lg, paddingHorizontal: space.lg }}>
+        <View style={{ paddingHorizontal: 6, marginBottom: space.xl }}>
+          <Logo size={26} />
+        </View>
+        <Button icon="plus" label={t('Ajouter', 'Add')} onPress={add} />
+        <View style={{ gap: 2, marginTop: space.xl }}>
+          {TABS.map((item) => {
+            const active = current === item.name;
+            return (
+              <Pressable
+                key={item.name}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={t(item.fr, item.en)}
+                onPress={() => goTo(item.name)}
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, height: 40, paddingHorizontal: 10, borderRadius: radius.md, backgroundColor: active ? color.surface : pressed ? color.line : 'transparent', borderWidth: 1, borderColor: active ? color.line : 'transparent' })}>
+                <Icon name={item.icon} size={19} color={active ? color.ink : color.inkSoft} />
+                <T variant={active ? 'bodyBold' : 'bodyMedium'} color={active ? color.ink : color.inkSoft}>
+                  {t(item.fr, item.en)}
+                </T>
+              </Pressable>
+            );
+          })}
+        </View>
+        {hasProperty ? (
+          <ScrollView style={{ marginTop: space.xl, flex: 1 }}>
+            <T variant="small" color={color.inkFaint} style={{ paddingHorizontal: 10, marginBottom: 6 }}>
+              {t('Afficher', 'Show')}
+            </T>
+            <PropertyMenu compact />
+          </ScrollView>
+        ) : (
+          <View style={{ flex: 1 }} />
+        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: space.md }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('Réglages', 'Settings')} onPress={() => router.push('/settings')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, height: 40, paddingHorizontal: 10, borderRadius: radius.md, backgroundColor: pressed ? color.line : 'transparent', flex: 1 })}>
+            <Icon name="gear" size={19} color={color.inkSoft} />
+            <T variant="bodyMedium" color={color.inkSoft}>
+              {t('Réglages', 'Settings')}
+            </T>
+          </Pressable>
+          {demo ? <Tag label={t('Démo', 'Demo')} /> : null}
+        </View>
+        {sheet}
+      </View>
+    );
+  }
+
+  const tab = (item: (typeof TABS)[number]) => {
+    const active = current === item.name;
+    return (
+      <Pressable key={item.name} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={t(item.fr, item.en)} onPress={() => goTo(item.name)} style={{ flex: 1, alignItems: 'center', gap: 3, paddingVertical: 6 }}>
+        <Icon name={item.icon} size={21} color={active ? color.ink : color.inkFaint} weight={active ? 2.2 : 1.9} />
+        <T variant="small" color={active ? color.ink : color.inkFaint} style={active ? { fontFamily: 'PlusJakartaSans_600SemiBold' } : undefined}>
+          {t(item.fr, item.en)}
+        </T>
+      </Pressable>
+    );
+  };
+
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
-      <View
-        style={{
-          width: '100%',
-          maxWidth,
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: color.surface,
-          borderTopLeftRadius: radius.lg,
-          borderTopRightRadius: radius.lg,
-          borderTopWidth: 1,
-          borderColor: color.line,
-          paddingTop: 6,
-          paddingBottom: Math.max(insets.bottom, 8),
-          paddingHorizontal: space.sm,
-        }}>
+      <View style={{ width: '100%', maxWidth, flexDirection: 'row', alignItems: 'center', backgroundColor: color.paper, borderTopWidth: 1, borderColor: color.line, paddingTop: 6, paddingBottom: Math.max(insets.bottom, 8), paddingHorizontal: space.sm }}>
         {TABS.slice(0, 2).map(tab)}
-        <View style={{ width: 76, alignItems: 'center' }}>
+        <View style={{ width: 72, alignItems: 'center' }}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('Ajouter', 'Add')}
-            onPress={() => (hasProperty ? setAdding(true) : router.push('/property/new'))}
-            style={({ pressed }) => ({ width: 58, height: 58, borderRadius: 29, marginTop: -30, backgroundColor: color.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: color.paper, opacity: pressed ? 0.85 : 1 })}>
-            <Icon name="plus" size={26} color={color.accentInk} weight={2.6} />
+            onPress={add}
+            style={({ pressed }) => ({ width: 50, height: 50, borderRadius: radius.lg, marginTop: -22, backgroundColor: color.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: color.paper, opacity: pressed ? 0.85 : 1 })}>
+            <Icon name="plus" size={22} color={color.accentInk} weight={2.4} />
           </Pressable>
         </View>
         {TABS.slice(2).map(tab)}
       </View>
-
-      <Sheet open={adding} onClose={() => setAdding(false)} title={t('Ajouter', 'Add')}>
-        <View style={{ gap: space.sm }}>
-          <AddOption icon="minus" tint={color.negative} title={t('Une dépense', 'An expense')} text={t('Ménage, électricité, achat…', 'Cleaning, electricity, a purchase…')} onPress={() => go({ pathname: '/entry', params: { type: 'expense' } })} />
-          <AddOption icon="plus" tint={color.positive} title={t('Un revenu', 'Income')} text={t('Un versement Airbnb, Booking ou en direct', 'A payout from Airbnb, Booking or direct')} onPress={() => go({ pathname: '/entry', params: { type: 'booking' } })} />
-          <AddOption icon="camera" title={t('Photographier un reçu', 'Photograph a receipt')} text={t('La dépense se remplit à partir de la photo', 'The expense is filled in from the photo')} onPress={() => void attach(takePhoto)} />
-          <AddOption icon="file" title={t('Joindre un PDF ou une image', 'Attach a PDF or an image')} text={t('Une facture déjà sur le téléphone', 'An invoice already on the phone')} onPress={() => void attach(pickDocument)} />
-        </View>
-      </Sheet>
+      {sheet}
     </View>
   );
 }
 
-function AddOption({ icon, title, text, onPress, tint = color.ink }: { icon: IconName | 'minus'; title: string; text: string; onPress: () => void; tint?: string }) {
+function AddOption({ icon, title, text, onPress, tint = color.ink, bg }: { icon: IconName | 'minus'; title: string; text: string; onPress: () => void; tint?: string; bg: string }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: color.surface, borderRadius: radius.lg, padding: space.lg, opacity: pressed ? 0.7 : 1 })}>
-      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center' }}>
-        {icon === 'minus' ? <View style={{ width: 14, height: 2.4, borderRadius: 2, backgroundColor: tint }} /> : <Icon name={icon} color={tint} />}
+    <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.md, borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 8, backgroundColor: pressed ? color.sunken : 'transparent' })}>
+      <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+        {icon === 'minus' ? <View style={{ width: 13, height: 2.2, borderRadius: 2, backgroundColor: tint }} /> : <Icon name={icon} color={tint} size={19} />}
       </View>
       <View style={{ flex: 1 }}>
-        <T variant="bodyBold">{title}</T>
+        <T variant="bodyMedium">{title}</T>
         <T variant="small" color={color.inkSoft}>
           {text}
         </T>

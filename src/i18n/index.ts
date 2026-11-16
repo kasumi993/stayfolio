@@ -40,13 +40,15 @@ export const monthLabel = (m: Month, locale: Locale): string =>
   `${cap(MONTHS[locale][Number(m.slice(5, 7)) - 1])} ${m.slice(0, 4)}`;
 
 /** `2026-11` → `Nov.` */
-export const monthShort = (m: Month, locale: Locale): string =>
-  cap(MONTHS[locale][Number(m.slice(5, 7)) - 1]).slice(0, 3);
+export const monthShort = (m: Month, locale: Locale): string => cap(shortName(MONTHS[locale][Number(m.slice(5, 7)) - 1]));
+
+/** Three letters, except where that would make two months look alike (juin, juillet). */
+const shortName = (month: string): string => (month === 'juin' ? 'juin' : month === 'juillet' ? 'juil' : month.slice(0, 3));
 
 /** `2026-11-09` → `9 nov.` */
 export function dayLabel(date: string, locale: Locale): string {
   const month = MONTHS[locale][Number(date.slice(5, 7)) - 1];
-  const short = month.length > 4 ? month.slice(0, 3) + '.' : month;
+  const short = month.length > 4 ? shortName(month) + '.' : month;
   return locale === 'fr' ? `${Number(date.slice(8, 10))} ${short}` : `${cap(short)} ${Number(date.slice(8, 10))}`;
 }
 

@@ -38,11 +38,11 @@ export function Button({ label, onPress, tone = 'primary', icon, busy, disabled,
       onPress={onPress}
       style={({ pressed }) => [
         {
-          minHeight: compact ? 40 : 52,
-          paddingHorizontal: compact ? space.lg : space.xl,
+          minHeight: compact ? 38 : 48,
+          paddingHorizontal: compact ? space.md : space.xl,
           borderRadius: radius.md,
           backgroundColor: c.bg,
-          borderWidth: c.border ? 1.5 : 0,
+          borderWidth: c.border ? 1 : 0,
           borderColor: c.border,
           flexDirection: 'row',
           alignItems: 'center',
@@ -52,7 +52,7 @@ export function Button({ label, onPress, tone = 'primary', icon, busy, disabled,
         },
         style,
       ]}>
-      {busy ? <ActivityIndicator color={c.fg} /> : icon ? <Icon name={icon} size={19} color={c.fg} /> : null}
+      {busy ? <ActivityIndicator color={c.fg} /> : icon ? <Icon name={icon} size={17} color={c.fg} /> : null}
       <T variant={compact ? 'label' : 'bodyBold'} color={c.fg}>
         {label}
       </T>
@@ -67,8 +67,8 @@ export function IconButton({ icon, onPress, label, tint = color.ink, bg = 'trans
       accessibilityLabel={label}
       hitSlop={8}
       onPress={onPress}
-      style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, opacity: pressed ? 0.6 : 1 })}>
-      <Icon name={icon} color={tint} />
+      style={({ pressed }) => ({ width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? color.sunken : bg })}>
+      <Icon name={icon} color={tint} size={20} />
     </Pressable>
   );
 }
@@ -83,15 +83,15 @@ export function Chip({ label, selected, onPress, dot }: { label: string; selecte
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        paddingHorizontal: 14,
-        height: 38,
-        borderRadius: radius.pill,
+        paddingHorizontal: 12,
+        height: 34,
+        borderRadius: radius.sm + 2,
         backgroundColor: selected ? color.selected : color.surface,
-        borderWidth: 1.5,
+        borderWidth: 1,
         borderColor: selected ? color.selectedBorder : color.line,
         opacity: pressed ? 0.7 : 1,
       })}>
-      {dot ? <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: dot }} /> : null}
+      {dot ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: dot }} /> : null}
       <T variant="label" color={selected ? color.onSelected : color.ink}>
         {label}
       </T>
@@ -114,14 +114,14 @@ export function Toggle({ value, onChange, label, hint }: { value: boolean; onCha
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
       <View style={{ flex: 1 }}>
-        <T variant="bodyBold">{label}</T>
+        <T variant="bodyMedium">{label}</T>
         {hint ? (
           <T variant="small" color={color.inkSoft}>
             {hint}
           </T>
         ) : null}
       </View>
-      <Switch accessibilityLabel={label} value={value} onValueChange={onChange} trackColor={{ true: color.ink, false: color.lineStrong }} thumbColor={color.white} />
+      <Switch accessibilityLabel={label} value={value} onValueChange={onChange} trackColor={{ true: color.positive, false: color.lineStrong }} thumbColor={color.white} />
     </View>
   );
 }
@@ -148,14 +148,14 @@ export function Row({ title, subtitle, value, valueColor, note, leading, onPress
         flexDirection: 'row',
         alignItems: 'center',
         gap: space.md,
-        paddingVertical: 13,
+        paddingVertical: 12,
         borderBottomWidth: last ? 0 : 1,
         borderBottomColor: color.line,
         opacity: pressed ? 0.55 : dimmed ? 0.45 : 1,
       })}>
       {leading}
       <View style={{ flex: 1 }}>
-        <T variant="bodyBold" numberOfLines={1}>
+        <T variant="bodyMedium" numberOfLines={1}>
           {title}
         </T>
         {subtitle ? (
@@ -182,7 +182,7 @@ export function Row({ title, subtitle, value, valueColor, note, leading, onPress
 
 export function SectionTitle({ children, action }: { children: string; action?: ReactNode }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: space.xl, marginBottom: space.xs, minHeight: 32 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: space.xxl, marginBottom: space.xs, minHeight: 30 }}>
       <T variant="heading">{children}</T>
       {action}
     </View>
@@ -192,7 +192,7 @@ export function SectionTitle({ children, action }: { children: string; action?: 
 export function TextLink({ label, onPress, tint = color.ink }: { label: string; onPress: () => void; tint?: string }) {
   return (
     <Pressable accessibilityRole="button" hitSlop={10} onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-      <T variant="label" color={tint} style={{ textDecorationLine: 'underline' }}>
+      <T variant="label" color={tint === color.ink ? color.inkSoft : tint} style={{ textDecorationLine: 'underline' }}>
         {label}
       </T>
     </Pressable>
@@ -202,8 +202,8 @@ export function TextLink({ label, onPress, tint = color.ink }: { label: string; 
 export function Notice({ text, tone = 'notice', icon = 'alert', action }: { text: string; tone?: 'notice' | 'negative' | 'positive'; icon?: IconName; action?: ReactNode }) {
   const bg = { notice: color.noticeSoft, negative: color.negativeSoft, positive: color.positiveSoft }[tone];
   return (
-    <View style={{ flexDirection: 'row', gap: space.md, alignItems: 'flex-start', backgroundColor: bg, borderRadius: radius.md, padding: space.md }}>
-      <Icon name={icon} size={19} />
+    <View style={{ flexDirection: 'row', gap: space.md, alignItems: 'flex-start', backgroundColor: bg, borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: space.md }}>
+      <Icon name={icon} size={17} color={color.inkSoft} />
       <View style={{ flex: 1, gap: space.xs }}>
         <T variant="label">{text}</T>
         {action}
@@ -216,7 +216,9 @@ export function Empty({ title, text, children }: { title: string; text: string; 
   return (
     <View style={{ paddingVertical: space.xxl, gap: space.sm, alignItems: 'flex-start' }}>
       <T variant="heading">{title}</T>
-      <T color={color.inkSoft}>{text}</T>
+      <T color={color.inkSoft} style={{ maxWidth: 520 }}>
+        {text}
+      </T>
       {children ? <View style={{ marginTop: space.md, gap: space.sm, alignSelf: 'stretch' }}>{children}</View> : null}
     </View>
   );
@@ -241,5 +243,18 @@ export function ConfirmButton({ label, confirmLabel, onConfirm, icon = 'trash' }
     <Button tone="dark" icon={icon} label={confirmLabel} onPress={onConfirm} style={{ backgroundColor: color.negative }} />
   ) : (
     <Button tone="danger" icon={icon} label={label} onPress={() => setArmed(true)} />
+  );
+}
+
+/** A small coloured label: "Loyer couvert", "Démo"… */
+export function Tag({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'positive' | 'negative' | 'notice' }) {
+  const bg = { neutral: color.sunken, positive: color.positiveSoft, negative: color.negativeSoft, notice: color.noticeSoft }[tone];
+  const fg = { neutral: color.inkSoft, positive: color.positive, negative: color.negative, notice: color.ink }[tone];
+  return (
+    <View style={{ alignSelf: 'flex-start', paddingHorizontal: 10, height: 26, justifyContent: 'center', borderRadius: radius.sm, backgroundColor: bg }}>
+      <T variant="label" color={fg}>
+        {label}
+      </T>
+    </View>
   );
 }

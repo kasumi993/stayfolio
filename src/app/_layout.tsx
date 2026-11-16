@@ -1,5 +1,4 @@
-import { BricolageGrotesque_600SemiBold, BricolageGrotesque_700Bold } from '@expo-google-fonts/bricolage-grotesque';
-import { HankenGrotesk_400Regular, HankenGrotesk_500Medium, HankenGrotesk_600SemiBold } from '@expo-google-fonts/hanken-grotesk';
+import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-sans';
 import { useFonts } from 'expo-font';
 import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -10,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useStore } from '@/data/store';
 import { useT } from '@/i18n';
+import { useWide } from '@/ui/layout';
 import { T } from '@/ui/Text';
 import { color, maxWidth, radius, space } from '@/ui/theme';
 
@@ -17,11 +17,9 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const [fontsReady] = useFonts({
-    BricolageGrotesque_600SemiBold,
-    BricolageGrotesque_700Bold,
-    HankenGrotesk_400Regular,
-    HankenGrotesk_500Medium,
-    HankenGrotesk_600SemiBold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
   });
   const starting = useStore((s) => s.status === 'starting');
   const theme = useStore((s) => s.theme);
@@ -55,7 +53,11 @@ function Screens() {
     if (misplaced) router.replace(signedIn ? '/' : '/welcome');
   }, [misplaced, signedIn]);
 
-  const modal = { presentation: 'modal' } as const;
+  // Forms slide up full screen on a phone and open as a dialog over the page on a wide screen.
+  const wide = useWide();
+  const modal = wide
+    ? ({ presentation: 'transparentModal', animation: 'fade', contentStyle: { backgroundColor: 'transparent' } } as const)
+    : ({ presentation: 'modal' } as const);
   return (
     <>
       <StatusBar style="dark" />
@@ -69,8 +71,7 @@ function Screens() {
         <Stack.Screen name="share" options={modal} />
         <Stack.Screen name="import" options={modal} />
         <Stack.Screen name="settings" options={modal} />
-        <Stack.Screen name="property/[id]" />
-        <Stack.Screen name="property/new" options={modal} />
+        <Stack.Screen name="property-form" options={modal} />
         {/* Open to anyone holding the link or the reset email. */}
         <Stack.Screen name="s/[token]" />
         <Stack.Screen name="reset" />

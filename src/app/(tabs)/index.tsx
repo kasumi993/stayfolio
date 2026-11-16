@@ -1,165 +1,193 @@
 /**
- * Month: the screen opened every day. One sentence says where the month
- * stands, then the nights, the split between parties, and every entry.
+ * Month: the screen opened every day. The result of the month first, then the
+ * key figures, the trend, the split between parties, and every entry.
  */
 import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { View } from 'react-native';
 
-import { type Statement, base, monthStatement, nightsOf, ruleFor } from '@/core/calc';
-import { addMonths, currentMonth } from '@/core/dates';
+import { type Statement, base, monthStatement, nightsOf, occupancy, ruleFor, series } from '@/core/calc';
+import { addMonths, currentMonth, monthRange } from '@/core/dates';
 import { type Insight, insightsFor } from '@/core/insights';
 import { formatMoney, formatPercent } from '@/core/money';
 import type { Booking, Expense, Property } from '@/core/types';
 import { useData, useStore } from '@/data/store';
-import { Hero, HeroFacts, Stepper } from '@/features/Hero';
 import { useMoney, useSelection } from '@/features/hooks';
-import { type Translate, categoryLabel, dayLabel, monthLabel, useLocale, useT } from '@/i18n';
-import { Legend, Nights } from '@/ui/charts';
-import { Button, Dot, Empty, Notice, Row, SectionTitle, TextLink } from '@/ui/controls';
+import { PageHeader } from '@/features/PageHeader';
+import { type Translate, categoryLabel, dayLabel, monthLabel, monthShort, useLocale, useT } from '@/i18n';
+import { Bars, Breakdown, Legend, Progress, Ring, Tile, Tiles } from '@/ui/charts';
+import { Button, Dot, Empty, Notice, Row, SectionTitle, Tag, TextLink } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
-import { Block, Screen } from '@/ui/layout';
+import { Block, Card, Cols, Screen, useWide } from '@/ui/layout';
 import { T } from '@/ui/Text';
-import { color, pigmentDot, platformColor, space } from '@/ui/theme';
+import { color, pigmentDot, platformColor, seriesColors, space } from '@/ui/theme';
 
 export default function MonthScreen() {
   const t = useT();
   const locale = useLocale();
   const money = useMoney();
+  const wide = useWide();
   const data = useData();
   const month = useStore((s) => s.month);
   const setMonth = useStore((s) => s.setMonth);
   const { property, active } = useSelection();
+  const id = property?.id ?? null;
 
-  const s = useMemo(() => monthStatement(data, property?.id ?? null, month), [data, property, month]);
-  const insights = useMemo(() => insightsFor(data, property?.id ?? null, month), [data, property, month]);
+  const s = useMemo(() => monthStatement(data, id, month), [data, id, month]);
+  const occ = useMemo(() => occupancy(data, id, [month]), [data, id, month]);
+  const recent = useMemo(() => series(data, id, monthRange(addMonths(month, -5), month)), [data, id, month]);
+  const insights = useMemo(() => insightsFor(data, id, month), [data, id, month]);
   const byId = useMemo(() => new Map(data.properties.map((p) => [p.id, p])), [data.properties]);
 
   const bookings = [...s.bookings].sort((a, b) => a.check_in.localeCompare(b.check_in));
   const expenses = [...s.expenseRows].sort((a, b) => a.date.localeCompare(b.date));
-  const platforms = [...new Set(bookings.map((b) => b.platform))];
+  const categories = Object.entries(s.byCategory).sort((a, b) => b[1] - a[1]);
+  const tints = seriesColors();
 
   if (!active.length) {
     return (
-      <Screen header={<Hero>{<Headline text={t('Bienvenue.', 'Welcome.')} />}</Hero>}>
+      <Screen reading>
+        <PageHeader title={t('Bienvenue', 'Welcome')} filter={false} />
         <Empty title={t('Commence par un bien', 'Start with a property')} text={t('Ajoute un logement à la main, ou importe ton classeur Excel : les revenus, dépenses et règles de partage sont repris tels quels.', 'Add a place by hand, or import your Excel workbook: income, expenses and sharing rules come along as they are.')}>
           <Button label={t('Importer mon classeur Excel', 'Import my Excel workbook')} icon="download" onPress={() => router.push('/import')} />
-          <Button tone="quiet" label={t('Ajouter un bien', 'Add a property')} onPress={() => router.push('/property/new')} />
+          <Button tone="quiet" label={t('Ajouter un bien', 'Add a property')} onPress={() => router.push('/property-form')} />
         </Empty>
       </Screen>
     );
   }
 
   return (
-    <Screen
-      header={
-        <Hero>
-          <Stepper label={monthLabel(month, locale)} onPrev={() => setMonth(addMonths(month, -1))} onNext={() => setMonth(addMonths(month, 1))} onLabelPress={() => setMonth(currentMonth())} />
-          <Headline text={headline(s, property, money, t)} />
-          {property ? <RentLine s={s} /> : null}
-          {property ? (
-            <View style={{ marginTop: space.lg, gap: space.sm }}>
-              <Nights bookings={bookings} month={month} />
-              {platforms.length ? <Legend onHero items={platforms.map((p) => ({ label: p, tint: platformColor(p) }))} /> : null}
-            </View>
-          ) : null}
-          <HeroFacts
-            facts={[
-              { label: t('Revenus', 'Income'), value: money(s.revenue) },
-              { label: t('Dépenses', 'Expenses'), value: money(s.expenses) },
-              property
-                ? { label: t('Par nuit', 'Per night'), value: s.avgPerNight ? money(s.avgPerNight) : '—' }
-                : { label: t('Commissions', 'Commissions'), value: money(s.commission) },
+    <Screen>
+      <PageHeader title={monthLabel(month, locale)} stepper={{ onPrev: () => setMonth(addMonths(month, -1)), onNext: () => setMonth(addMonths(month, 1)), onReset: () => setMonth(currentMonth()) }} />
+
+      <Cols ratio={[2, 3]} gap={space.xl}>
+        <Summary s={s} property={property} />
+        <View style={{ marginTop: wide ? 0 : space.xl }}>
+          <Tiles wide={false}>
+            {[
+              <Tile key="in" label={t('Revenus', 'Income')} value={money(s.revenue)} note={t(`${bookings.length} versement${bookings.length > 1 ? 's' : ''}`, `${bookings.length} payout${bookings.length > 1 ? 's' : ''}`)} tint={color.tintIncome} />,
+              <Tile key="out" label={t('Dépenses', 'Expenses')} value={money(s.expenses)} note={s.rent ? t(`dont loyer ${money(s.rent)}`, `incl. rent ${money(s.rent)}`) : undefined} tint={color.tintExpense} />,
+              <Tile
+                key="occ"
+                label={t('Occupation', 'Occupancy')}
+                value={`${Math.round(occ.rate * 100)} %`}
+                note={t(`${occ.booked} nuits sur ${occ.available}`, `${occ.booked} of ${occ.available} nights`)}
+                tint={color.tintOccupancy}
+                aside={<Ring value={occ.rate} size={44} stroke={6} />}
+              />,
+              property ? (
+                <Tile key="night" label={t('Revenu par nuit', 'Income per night')} value={s.avgPerNight ? money(s.avgPerNight) : '—'} note={s.breakEvenPerNight ? t(`équilibre à ${money(s.breakEvenPerNight)}`, `break-even at ${money(s.breakEvenPerNight)}`) : undefined} tint={color.tintNight} />
+              ) : (
+                <Tile key="fee" label={t('Mes commissions', 'My commissions')} value={money(s.commission)} tint={color.tintNight} />
+              ),
             ]}
-          />
-        </Hero>
-      }>
+          </Tiles>
+        </View>
+      </Cols>
+
       {insights.length ? (
-        <View style={{ gap: space.sm, marginTop: space.md }}>
+        <View style={{ gap: space.sm, marginTop: space.xl }}>
           {insights.map((ins, i) => (
             <Notice key={i} icon={ins.kind === 'rent_gap' ? 'month' : ins.kind === 'spike' ? 'chart' : 'alert'} text={capitalize(insightText(ins, byId.get(ins.property_id), !property, money, locale, t))} />
           ))}
         </View>
       ) : null}
 
-      {property ? <Split s={s} property={property} /> : <Portfolio />}
+      <Cols ratio={[3, 2]}>
+        <View>
+          <SectionTitle>{t('Les six derniers mois', 'The last six months')}</SectionTitle>
+          <Card>
+            <Bars points={recent.map((p) => ({ key: p.month, label: monthShort(p.month, locale), income: p.revenue, expenses: p.expenses }))} selected={month} onSelect={setMonth} />
+            <View style={{ marginTop: space.md }}>
+              <Legend items={[{ label: t('Revenus', 'Income'), tint: color.chartIncome }, { label: t('Dépenses', 'Expenses'), tint: color.chartExpense }]} />
+            </View>
+          </Card>
+          {categories.length ? (
+            <>
+              <SectionTitle>{t('Où part l’argent ce mois-ci', 'Where the money goes this month')}</SectionTitle>
+              <Breakdown items={categories.map(([key, value], i) => ({ label: categoryLabel(key, locale), value, tint: tints[i % tints.length] }))} format={money} />
+            </>
+          ) : null}
+        </View>
+        {property ? <Split s={s} property={property} /> : <Portfolio />}
+      </Cols>
 
-      <SectionTitle action={<TextLink label={t('Ajouter', 'Add')} onPress={() => router.push({ pathname: '/entry', params: { type: 'booking' } })} />}>
-        {t('Revenus', 'Income')}
-      </SectionTitle>
-      {bookings.length ? (
-        <Block>
-          {bookings.map((b, i) => (
-            <BookingRow key={b.id} booking={b} property={property ? undefined : byId.get(b.property_id)} last={i === bookings.length - 1} />
-          ))}
-        </Block>
-      ) : (
-        <T color={color.inkSoft}>{t('Aucun revenu ce mois-ci.', 'No income this month.')}</T>
-      )}
-
-      <SectionTitle action={<TextLink label={t('Ajouter', 'Add')} onPress={() => router.push({ pathname: '/entry', params: { type: 'expense' } })} />}>
-        {t('Dépenses', 'Expenses')}
-      </SectionTitle>
-      {expenses.length ? (
-        <Block>
-          {expenses.map((x, i) => (
-            <ExpenseRow key={x.id} expense={x} property={property ? undefined : x.property_id ? byId.get(x.property_id) : undefined} last={i === expenses.length - 1} />
-          ))}
-        </Block>
-      ) : (
-        <T color={color.inkSoft}>{t('Aucune dépense ce mois-ci.', 'No expenses this month.')}</T>
-      )}
+      <Cols>
+        <View>
+          <SectionTitle action={<TextLink label={t('Ajouter', 'Add')} onPress={() => router.push({ pathname: '/entry', params: { type: 'booking' } })} />}>{t('Revenus', 'Income')}</SectionTitle>
+          {bookings.length ? (
+            <Block>
+              {bookings.map((b, i) => (
+                <BookingRow key={b.id} booking={b} property={property ? undefined : byId.get(b.property_id)} last={i === bookings.length - 1} />
+              ))}
+            </Block>
+          ) : (
+            <T color={color.inkSoft}>{t('Aucun revenu ce mois-ci.', 'No income this month.')}</T>
+          )}
+        </View>
+        <View>
+          <SectionTitle action={<TextLink label={t('Ajouter', 'Add')} onPress={() => router.push({ pathname: '/entry', params: { type: 'expense' } })} />}>{t('Dépenses', 'Expenses')}</SectionTitle>
+          {expenses.length ? (
+            <Block>
+              {expenses.map((x, i) => (
+                <ExpenseRow key={x.id} expense={x} property={property ? undefined : x.property_id ? byId.get(x.property_id) : undefined} last={i === expenses.length - 1} />
+              ))}
+            </Block>
+          ) : (
+            <T color={color.inkSoft}>{t('Aucune dépense ce mois-ci.', 'No expenses this month.')}</T>
+          )}
+        </View>
+      </Cols>
     </Screen>
   );
 }
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-const Headline = ({ text }: { text: string }) => (
-  <T variant="title" color={color.onHero} style={{ marginTop: space.md, minHeight: 64 }}>
-    {text}
-  </T>
-);
-
-/** The month in one sentence, the way its owner would put it. */
-function headline(s: Statement, property: Property | null, money: (v: number) => string, t: Translate): string {
-  if (!s.bookings.length && !s.expenseRows.length) return t('Rien d’enregistré ce mois-ci.', 'Nothing recorded this month.');
-  if (!property) return s.mine >= 0 ? t(`Ce mois me rapporte ${money(s.mine)}.`, `This month earns me ${money(s.mine)}.`) : t(`Ce mois me coûte ${money(-s.mine)}.`, `This month costs me ${money(-s.mine)}.`);
-  if (s.rentCovered === false) return t(`Il manque ${money(s.rent - s.revenue)} pour couvrir le loyer.`, `${money(s.rent - s.revenue)} short of covering the rent.`);
-  if (s.net < 0) return s.rentCovered ? t(`Loyer couvert. Encore ${money(-s.net)} avant l’équilibre.`, `Rent covered. ${money(-s.net)} to go before breaking even.`) : t(`Encore ${money(-s.net)} avant l’équilibre.`, `${money(-s.net)} to go before breaking even.`);
-  if (property.kind === 'managed' && s.commission > 0) return t(`${money(s.commission)} de commission ce mois-ci.`, `${money(s.commission)} in commission this month.`);
-  return t(`Mois bénéficiaire : ${money(s.net)}.`, `In profit this month: ${money(s.net)}.`);
-}
-
-/** Revenue as a bar, with a tick where the rent sits and one at break-even. */
-function RentLine({ s }: { s: Statement }) {
+/** The result of the month, and how far income is from the rent and from break-even. */
+function Summary({ s, property }: { s: Statement; property: Property | null }) {
   const t = useT();
   const money = useMoney();
-  if (!s.revenue && !s.expenses) return null;
-  const scale = Math.max(s.revenue, s.expenses, 1) * 1.04;
-  const pct = (v: number) => `${Math.min(100, (v / scale) * 100)}%` as const;
-  const marks = [
-    { key: 'rent', value: s.rent, label: t('Loyer', 'Rent') },
-    { key: 'even', value: s.expenses, label: t('Équilibre', 'Break-even') },
-  ].filter((m) => m.value > 0 && (m.key === 'even' || s.rent < s.expenses));
+  const value = property ? s.net : s.mine;
+  const empty = !s.bookings.length && !s.expenseRows.length;
+  const managed = property?.kind === 'managed';
   return (
-    <View style={{ marginTop: space.md }}>
-      <View style={{ height: 12, borderRadius: 6, backgroundColor: color.heroTrack }}>
-        <View style={{ width: pct(s.revenue), height: 12, borderRadius: 6, backgroundColor: color.heroBar }} />
-        {marks.map((m) => (
-          <View key={m.key} style={{ position: 'absolute', left: pct(m.value), top: -5, width: 2.5, height: 22, marginLeft: -1.25, borderRadius: 2, backgroundColor: color.onHero }} />
-        ))}
+    <View>
+      <T variant="label" color={color.inkSoft}>
+        {property ? t('Résultat du mois', 'Result of the month') : t('Ce que le mois me rapporte', 'What the month earns me')}
+      </T>
+      <T variant="hero" tabular color={empty ? color.inkFaint : value < 0 ? color.negative : color.positive} numberOfLines={1} adjustsFontSizeToFit>
+        {money(value, { sign: true })}
+      </T>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm }}>
+        {empty ? <Tag label={t('Rien d’enregistré ce mois-ci', 'Nothing recorded this month')} /> : null}
+        {s.rentCovered === true ? <Tag tone="positive" label={t('Loyer couvert', 'Rent covered')} /> : null}
+        {s.rentCovered === false ? <Tag tone="negative" label={t('Loyer non couvert', 'Rent not covered')} /> : null}
+        {property && s.parties.length > 1 ? <Tag label={t(`Pour moi : ${money(s.mine, { sign: true })}`, `For me: ${money(s.mine, { sign: true })}`)} /> : null}
+        {managed && s.commission ? <Tag label={t(`dont ${money(s.commission)} de commission`, `incl. ${money(s.commission)} commission`)} /> : null}
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: space.lg, rowGap: 2, marginTop: space.md }}>
-        {marks.map((m) => (
-          <View key={m.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            {s.revenue >= m.value ? <Icon name="check" size={14} color={color.heroMark} weight={3} /> : <View style={{ width: 2.5, height: 12, borderRadius: 2, backgroundColor: color.onHero }} />}
-            <T variant="small" color={color.onHeroSoft}>
-              {m.label} {money(m.value)}
-            </T>
-          </View>
-        ))}
-      </View>
+      {property && (s.rent > 0 || s.expenses > 0) ? (
+        <View style={{ gap: space.lg, marginTop: space.xl }}>
+          {s.rent > 0 ? (
+            <Progress
+              label={t(`Loyer de ${money(s.rent)}`, `Rent of ${money(s.rent)}`)}
+              value={s.revenue}
+              target={s.rent}
+              done={s.revenue >= s.rent}
+              note={s.revenue >= s.rent ? t('couvert', 'covered') : t(`il manque ${money(s.rent - s.revenue)}`, `${money(s.rent - s.revenue)} short`)}
+            />
+          ) : null}
+          {s.expenses > 0 ? (
+            <Progress
+              label={t(`Équilibre à ${money(s.expenses)}`, `Break-even at ${money(s.expenses)}`)}
+              value={s.revenue}
+              target={s.expenses}
+              done={s.net >= 0}
+              note={s.net >= 0 ? t('atteint', 'reached') : t(`il manque ${money(-s.net)}`, `${money(-s.net)} short`)}
+            />
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -175,10 +203,8 @@ function Split({ s, property }: { s: Statement; property: Property }) {
   const solo = lines.length <= 1 && !s.commission && !s.privateExpenses;
 
   return (
-    <>
-      <SectionTitle action={<TextLink label={t('Règles', 'Rules')} onPress={() => router.push({ pathname: '/rules', params: { property: property.id } })} />}>
-        {t('Répartition', 'Split')}
-      </SectionTitle>
+    <View>
+      <SectionTitle action={<TextLink label={t('Règles', 'Rules')} onPress={() => router.push({ pathname: '/rules', params: { property: property.id } })} />}>{t('Répartition', 'Split')}</SectionTitle>
       {!rule ? (
         <Notice text={t('Aucune règle de partage pour ce bien : tout est compté pour moi.', 'No sharing rule for this property yet: everything counts as mine.')} />
       ) : solo ? (
@@ -191,21 +217,13 @@ function Split({ s, property }: { s: Statement; property: Property }) {
             if (share?.revenue) parts.push(t(`${formatPercent(share.revenue)} des revenus`, `${formatPercent(share.revenue)} of income`));
             if (share?.expense) parts.push(t(`${formatPercent(share.expense)} des dépenses`, `${formatPercent(share.expense)} of expenses`));
             if (line.party.is_me && line.commission) parts.push(t(`commission ${money(line.commission)}`, `commission ${money(line.commission)}`));
-            return (
-              <Row
-                key={line.party.id}
-                title={line.party.is_me ? t('Moi', 'Me') : line.party.name}
-                subtitle={parts.join(', ') || undefined}
-                value={money(line.net, { sign: true })}
-                valueColor={line.net < 0 ? color.negative : color.ink}
-              />
-            );
+            return <Row key={line.party.id} title={line.party.is_me ? t('Moi', 'Me') : line.party.name} subtitle={parts.join(', ') || undefined} value={money(line.net, { sign: true })} valueColor={line.net < 0 ? color.negative : color.ink} />;
           })}
-          {s.privateExpenses ? <Row title={t('Mes frais privés', 'My private costs')} subtitle={t('Jamais visibles dans un relevé partagé', 'Never shown in a shared statement')} value={money(-s.privateExpenses)} leading={<Icon name="lock" size={18} color={color.inkSoft} />} /> : null}
+          {s.privateExpenses ? <Row title={t('Mes frais privés', 'My private costs')} subtitle={t('Jamais visibles dans un relevé partagé', 'Never shown in a shared statement')} value={money(-s.privateExpenses)} leading={<Icon name="lock" size={16} color={color.inkSoft} />} /> : null}
           {s.privateExpenses ? <Row title={t('Pour moi ce mois-ci', 'For me this month')} value={money(s.mine, { sign: true })} valueColor={s.mine < 0 ? color.negative : color.positive} /> : null}
         </Block>
       )}
-    </>
+    </View>
   );
 }
 
@@ -218,7 +236,7 @@ function Portfolio() {
   const setProperty = useStore((s) => s.setProperty);
   const { active } = useSelection();
   return (
-    <>
+    <View>
       <SectionTitle>{t('Par bien', 'By property')}</SectionTitle>
       <Block>
         {active.map((p, i) => {
@@ -227,18 +245,18 @@ function Portfolio() {
             <Row
               key={p.id}
               title={p.name}
-              subtitle={t(`${s.nights} nuits, résultat ${money(s.net, { sign: true })}`, `${s.nights} nights, result ${money(s.net, { sign: true })}`)}
+              subtitle={t(`Résultat ${money(s.net, { sign: true })}, ${s.nights} nuits`, `Result ${money(s.net, { sign: true })}, ${s.nights} nights`)}
               value={money(s.mine, { sign: true })}
               valueColor={s.mine < 0 ? color.negative : color.ink}
               note={t('pour moi', 'for me')}
-              leading={<Dot tint={pigmentDot(p.color)} size={12} />}
+              leading={<Dot tint={pigmentDot(p.color)} size={10} />}
               onPress={() => setProperty(p.id)}
               last={i === active.length - 1}
             />
           );
         })}
       </Block>
-    </>
+    </View>
   );
 }
 
@@ -248,7 +266,7 @@ function BookingRow({ booking: b, property, last }: { booking: Booking; property
   const money = useMoney();
   const currency = useStore((s) => s.data.profile.currency);
   const n = nightsOf(b);
-  const stay = b.check_out ? `${dayLabel(b.check_in, locale)} → ${dayLabel(b.check_out, locale)}` : dayLabel(b.check_in, locale);
+  const stay = b.check_out ? `${dayLabel(b.check_in, locale)} – ${dayLabel(b.check_out, locale)}` : dayLabel(b.check_in, locale);
   return (
     <Row
       title={b.guest ? `${b.platform}, ${b.guest}` : b.platform}
@@ -256,7 +274,7 @@ function BookingRow({ booking: b, property, last }: { booking: Booking; property
       value={money(base(b), { sign: true })}
       valueColor={color.positive}
       note={b.currency !== currency ? formatMoney(b.amount, b.currency) : undefined}
-      leading={<Dot tint={platformColor(b.platform)} />}
+      leading={<Dot tint={platformColor(b.platform)} size={10} />}
       onPress={() => router.push({ pathname: '/entry', params: { type: 'booking', id: b.id } })}
       last={last}
     />
@@ -277,7 +295,7 @@ function ExpenseRow({ expense: x, property, last }: { expense: Expense; property
       subtitle={[property?.name, label === title ? null : label, x.vendor && x.vendor !== title ? x.vendor : null, dayLabel(x.date, locale), ...tags].filter(Boolean).join(', ')}
       value={money(-base(x))}
       note={hasDoc ? t('reçu joint', 'receipt attached') : undefined}
-      leading={x.recurring_id ? <Icon name="repeat" size={17} color={color.inkSoft} /> : x.scope === 'private' ? <Icon name="lock" size={17} color={color.inkSoft} /> : <View style={{ width: 17 }} />}
+      leading={x.recurring_id ? <Icon name="repeat" size={15} color={color.inkFaint} /> : x.scope === 'private' ? <Icon name="lock" size={15} color={color.inkFaint} /> : <View style={{ width: 15 }} />}
       dimmed={x.excluded}
       onPress={() => router.push({ pathname: '/entry', params: { type: 'expense', id: x.id } })}
       last={last}

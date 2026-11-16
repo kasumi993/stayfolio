@@ -98,20 +98,42 @@ level, a probable duplicate, overlapping bookings) is done with plain rules in
 
 ## Design system (`src/ui`)
 
-All colours, fonts and spacing come from `theme.ts`. Each property has its own
-pigment, and one accent colour marks the action of the moment. The signature
-element is the strip of nights (`Nights` in `charts.tsx`): one cell per night
-of the month, coloured by booking platform.
+All colours, fonts and spacing come from `theme.ts`. The page is white; colour
+is kept for meaning: soft tints mark the four tiles (income, expenses,
+occupancy, income per night), green and red mark gains and losses, and each
+property has its own pigment. One typeface, Plus Jakarta Sans, in three
+weights. Corners are small (8 to 20) and most lists have no frame, only
+dividers.
 
-Two themes share the same token names: **pastel** (the default: soft tinted
-panels, dark text) and **indigo** (deep panels, light text, mango accent). The
-choice is made in Settings and remembered on the device. Switching swaps the
-values of the shared `color` object and re-creates the screens; components
-read colours while rendering, never in a top-level constant. Adding a theme is
-one more entry in `themes`.
+Figures are shown as pictures wherever that reads faster (`charts.tsx`):
 
-Two typefaces: Bricolage Grotesque for headlines and figures, Hanken Grotesk
-for everything else.
+- `Progress`: how far the month's income is from the rent and from break-even.
+- `Ring`: the occupancy rate (nights booked out of nights available,
+  `occupancy` in `core/calc.ts`).
+- `Bars`: income against expenses, month by month.
+- `Trend`: the running result over the year.
+- `Breakdown`: where the money goes, or comes from.
+
+Two themes share the same token names: **pastel** (the default) and
+**indigo**. The choice is made in Settings and remembered on the device.
+Switching swaps the values of the shared `color` object and re-creates the
+screens; components read colours while rendering, never in a top-level
+constant. Adding a theme is one more entry in `themes`.
+
+## Phone and computer layouts (`src/ui/layout.tsx`)
+
+One code base, two layouts, chosen by the width of the window (`useWide`,
+960 px and above):
+
+| | Narrow (phone) | Wide (computer) |
+|---|---|---|
+| Navigation | tab bar at the bottom, "+" in the middle | sidebar on the left with the property filter |
+| Content | one column | `Cols` places blocks side by side |
+| Forms | full-screen modal | dialog centred over the page (`FormScreen`) |
+| Choices | sheet from the bottom | centred dialog (`Sheet`) |
+
+Because the choice depends only on width, narrowing the browser window, or
+using the browser's device simulator, shows the phone layout on the web.
 
 ## Adding things
 
