@@ -47,6 +47,7 @@ export default function RulesScreen() {
 
   const total = (key: 'revenue' | 'expense') => parties.reduce((sum, p) => sum + frac(shares[p.id]?.[key] ?? '0'), 0);
   const balanced = Math.abs(total('revenue') - 1) < 0.0001 && Math.abs(total('expense') - 1) < 0.0001;
+  const named = parties.every((p) => p.is_me || p.name.trim());
   const setShare = (id: string, key: 'revenue' | 'expense', value: string) => setShares({ ...shares, [id]: { ...shares[id], [key]: value } });
 
   function addParty() {
@@ -67,7 +68,7 @@ export default function RulesScreen() {
       shares: parties.map((p) => ({ party_id: p.id, revenue: frac(shares[p.id].revenue), expense: frac(shares[p.id].expense) })),
     };
     try {
-      await save('parties', parties);
+      await save('parties', parties.map((p) => ({ ...p, name: p.name.trim() })));
       if (scope === 'all' || !own.length) {
         // One rule for the whole history.
         if (own.length > 1) await remove('rules', own.slice(1).map((r) => r.id));
@@ -88,7 +89,7 @@ export default function RulesScreen() {
   }
 
   return (
-    <FormScreen title={t('Règles de calcul', 'Calculation rules')} footer={<Button label={t('Enregistrer', 'Save')} onPress={submit} busy={busy} disabled={!balanced} />}>
+    <FormScreen title={t('Règles de calcul', 'Calculation rules')} footer={<Button label={t('Enregistrer', 'Save')} onPress={submit} busy={busy} disabled={!balanced || !named} />}>
       <Field label={t('Ma commission sur chaque réservation (%)', 'My commission on each booking (%)')} value={commission} onChangeText={setCommission} keyboardType="numbers-and-punctuation" />
       <T variant="small" color={color.inkSoft} style={{ marginTop: -space.sm }}>
         {t('Prélevée sur le versement net, avant le partage des revenus. Une réservation peut avoir son propre taux.', 'Taken from the net payout, before income is shared. A single booking can carry its own rate.')}
@@ -96,10 +97,18 @@ export default function RulesScreen() {
 
       {parties.map((p) => (
         <View key={p.id} style={{ borderWidth: 1, borderColor: color.line, borderRadius: radius.lg, padding: space.lg, gap: space.md }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <T variant="heading">{p.is_me ? t('Moi', 'Me') : p.name}</T>
-            {!p.is_me ? <TextLink label={t('Retirer', 'Remove')} tint={color.negative} onPress={() => setParties(parties.filter((x) => x.id !== p.id))} /> : null}
-          </View>
+          {p.is_me ? (
+            <T variant="heading">{t('Moi', 'Me')}</T>
+          ) : (
+            <View style={{ flexDirection: 'row', gap: space.md, alignItems: 'flex-end' }}>
+              <View style={{ flex: 1 }}>
+                <Field label={t('Nom', 'Name')} value={p.name} onChangeText={(name) => setParties(parties.map((x) => (x.id === p.id ? { ...x, name } : x)))} />
+              </View>
+              <View style={{ height: 50, justifyContent: 'center' }}>
+                <TextLink label={t('Retirer', 'Remove')} tint={color.negative} onPress={() => setParties(parties.filter((x) => x.id !== p.id))} />
+              </View>
+            </View>
+          )}
           <View style={{ flexDirection: 'row', gap: space.md }}>
             <View style={{ flex: 1 }}>
               <Field label={t('Part des revenus (%)', 'Share of income (%)')} value={shares[p.id]?.revenue ?? '0'} onChangeText={(v) => setShare(p.id, 'revenue', v)} keyboardType="numbers-and-punctuation" />

@@ -11,7 +11,7 @@ import { type ImportPlan, planImport } from '@/core/importWorkbook';
 import { type Data, emptyData } from '@/core/types';
 import { useStore } from '@/data/store';
 import { useMoney } from '@/features/hooks';
-import { monthLabel, shareLabel, useLocale, useT } from '@/i18n';
+import { de, monthLabel, shareLabel, useLocale, useT } from '@/i18n';
 import { pickWorkbook } from '@/platform/pick';
 import { Button, Notice, Row, SectionTitle } from '@/ui/controls';
 import { Field } from '@/ui/fields';
@@ -107,7 +107,7 @@ export default function ImportScreen() {
           <Row title={t('Revenus', 'Income')} subtitle={t(`${plan.bookings.length} versements, ${check.all.nights} nuits`, `${plan.bookings.length} payouts, ${check.all.nights} nights`)} value={money(check.all.revenue)} />
           <Row title={t('Dépenses', 'Expenses')} subtitle={t(`${plan.expenses.length} lignes`, `${plan.expenses.length} rows`)} value={money(-check.all.expenses)} />
           <Row title={t('Résultat cumulé', 'Cumulative result')} value={money(check.all.net, { sign: true })} valueColor={check.all.net < 0 ? color.negative : color.positive} />
-          {plan.transfers.length ? <Row title={t(`Versements de ${partner?.name ?? ''}`, `Payments from ${partner?.name ?? ''}`)} subtitle={t(`${plan.transfers.length} versements`, `${plan.transfers.length} payments`)} value={money(plan.transfers.reduce((s, x) => s + x.amount, 0))} /> : null}
+          {plan.transfers.length ? <Row title={t(`Versements ${de(partner?.name ?? '')}`, `Payments from ${partner?.name ?? ''}`)} subtitle={t(`${plan.transfers.length} versements`, `${plan.transfers.length} payments`)} value={money(plan.transfers.reduce((s, x) => s + x.amount, 0))} /> : null}
           {plan.rule.shares.map((s, i, list) => {
             const party = plan.parties.find((p) => p.id === s.party_id);
             return <Row key={s.party_id} title={party?.name ?? ''} subtitle={shareLabel(s, locale)} last={i === list.length - 1 && !plan.recurring.length} />;

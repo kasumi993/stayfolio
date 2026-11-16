@@ -53,6 +53,9 @@ export function dayLabel(date: string, locale: Locale): string {
   return locale === 'fr' ? `${Number(date.slice(8, 10))} ${short}` : `${cap(short)} ${Number(date.slice(8, 10))}`;
 }
 
+/** French "de" before a name, elided before a vowel: `de Mareme`, `d’Awa`. */
+export const de = (name: string): string => (/^[aeiouyàâéèêëîïôöùûh]/i.test(name.trim()) ? `d’${name}` : `de ${name}`);
+
 /** How a party shares in a property: "60 % du résultat", or both figures when they differ. */
 export function shareLabel(share: { revenue: number; expense: number } | undefined, locale: Locale): string {
   if (!share || (!share.revenue && !share.expense)) return '';

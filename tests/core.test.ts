@@ -168,12 +168,11 @@ describe.skipIf(!sample || !existsSync(sample))('import of the real workbook', (
     expect(plan.bookings).toHaveLength(41);
     expect(plan.expenses).toHaveLength(85);
     expect(plan.parties.map((p) => p.name)).toEqual(['Khady', 'Mareme']);
-    // The profit is shared 60/40; the workbook's 50/50 only tracked who funds what.
-    expect(plan.rule.shares.map((s) => [s.revenue, s.expense])).toEqual([[0.6, 0.6], [0.4, 0.4]]);
+    // Income is shared 60/40 (one partner runs the place), expenses 50/50.
+    expect(plan.rule.shares.map((s) => [s.revenue, s.expense])).toEqual([[0.6, 0.5], [0.4, 0.5]]);
     expect(plan.transfers.reduce((t, x) => t + x.amount, 0)).toBe(1208000);
     expect(plan.recurring[0]).toMatchObject({ category: 'rent', amount: 450000, start_month: '2026-12' });
-    expect(plan.warnings).toHaveLength(1);
-    expect(plan.warnings[0]).toContain('60/40');
+    expect(plan.warnings).toEqual([]);
   });
 
   it('matches the Excel dashboard month by month', () => {
@@ -197,11 +196,13 @@ describe.skipIf(!sample || !existsSync(sample))('import of the real workbook', (
     expect(monthStatement(d, plan.property.id, '2026-05').rentCovered).toBe(true);
     const pts = series(d, plan.property.id, monthRange('2026-04', '2026-11'));
     expect(pts[7].cumulative).toBeCloseTo(-1825683.757, 2);
-    // The result is shared 60/40, and each partner's account adds up.
+    // Each partner bears half of the expenses, as in columns J and K, and the
+    // partner's account is what she paid in plus her share of the result.
     const s = propertyStatement(d, plan.property, () => true);
-    expect(s.parties.map((l) => Math.round(l.net))).toEqual([-1095410, -730274]);
-    const mareme = balances(d, plan.property.id).find((b) => !b.party.is_me)!;
-    expect(Math.round(mareme.balance)).toBe(1208000 - 730274);
+    expect(Math.round(s.parties[1].expenses)).toBe(3051727);
+    expect(s.parties.map((l) => Math.round(l.net))).toEqual([-485065, -1340619]);
+    const partner = balances(d, plan.property.id).find((b) => !b.party.is_me)!;
+    expect(Math.round(partner.balance)).toBe(1208000 - 1340619);
     const p = payback(d, plan.property.id, '2026-11')!;
     expect(Math.round(p.cumulative)).toBe(-1825684);
     expect(p.paceMonths).toBe(6);
