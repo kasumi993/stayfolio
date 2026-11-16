@@ -15,7 +15,8 @@ docs/ARCHITECTURE.md first: they are short.
   not compute money.
 - Types in `src/core/types.ts` mirror database columns one-to-one.
 - Screens talk to `useStore` only, never to Supabase directly.
-- Colours, fonts and spacing come from `src/ui/theme.ts`.
+- Colours, fonts and spacing come from `src/ui/theme.ts`. Read `color.*` inside
+  components (at render), never in a module-level constant: themes swap its values.
 - User-facing text is written in French and English side by side: `t('…', '…')`.
 - Anything shown to owners or partners goes through `src/core/sharing.ts`.
   Do not add a field there without asking whether it is private.

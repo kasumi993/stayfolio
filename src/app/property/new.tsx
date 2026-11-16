@@ -18,7 +18,7 @@ import { Field, Label } from '@/ui/fields';
 import { Icon } from '@/ui/Icon';
 import { FormScreen } from '@/ui/layout';
 import { T } from '@/ui/Text';
-import { color, pigmentKeys, pigmentOf, space } from '@/ui/theme';
+import { color, pigmentDot, pigmentKeys, space } from '@/ui/theme';
 
 const KINDS: PropertyKind[] = ['owned', 'partnership', 'managed'];
 
@@ -101,7 +101,7 @@ export default function PropertyForm() {
         <Label>{t('Couleur', 'Colour')}</Label>
         <View style={{ flexDirection: 'row', gap: space.md }}>
           {pigmentKeys.map((key) => (
-            <Pressable key={key} accessibilityLabel={key} onPress={() => setTint(key)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: pigmentOf(key), alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable key={key} accessibilityLabel={key} onPress={() => setTint(key)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: pigmentDot(key), alignItems: 'center', justifyContent: 'center' }}>
               {tint === key ? <Icon name="check" color={color.white} weight={3} /> : null}
             </Pressable>
           ))}

@@ -43,7 +43,7 @@ export default function ReportsScreen() {
       header={
         <Hero>
           <Stepper label={String(year)} onPrev={() => setYear(year - 1)} onNext={() => setYear(year + 1)} onLabelPress={() => setYear(yearOf(currentMonth()))} />
-          <T variant="title" color={color.white} style={{ marginTop: space.md, minHeight: 64 }}>
+          <T variant="title" color={color.onHero} style={{ marginTop: space.md, minHeight: 64 }}>
             {!filled.length
               ? t(`Rien d’enregistré en ${year}.`, `Nothing recorded in ${year}.`)
               : property
@@ -74,7 +74,7 @@ export default function ReportsScreen() {
                 router.navigate('/');
               }}
             />
-            <Legend items={[{ label: t('Revenus', 'Income'), tint: color.mango }, { label: t('Dépenses', 'Expenses'), tint: color.ink }]} />
+            <Legend items={[{ label: t('Revenus', 'Income'), tint: color.chartIncome }, { label: t('Dépenses', 'Expenses'), tint: color.chartExpense }]} />
           </View>
 
           <SectionTitle>{t('Mois par mois', 'Month by month')}</SectionTitle>

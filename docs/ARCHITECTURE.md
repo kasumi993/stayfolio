@@ -98,10 +98,17 @@ level, a probable duplicate, overlapping bookings) is done with plain rules in
 
 ## Design system (`src/ui`)
 
-All colours, fonts and spacing come from `theme.ts`. Indigo ink on pale paper,
-one mango accent for the action of the moment, and a pigment per property.
-The signature element is the strip of nights (`Nights` in `charts.tsx`): one
-cell per night of the month, coloured by booking platform.
+All colours, fonts and spacing come from `theme.ts`. Each property has its own
+pigment, and one accent colour marks the action of the moment. The signature
+element is the strip of nights (`Nights` in `charts.tsx`): one cell per night
+of the month, coloured by booking platform.
+
+Two themes share the same token names: **pastel** (the default: soft tinted
+panels, dark text) and **indigo** (deep panels, light text, mango accent). The
+choice is made in Settings and remembered on the device. Switching swaps the
+values of the shared `color` object and re-creates the screens; components
+read colours while rendering, never in a top-level constant. Adding a theme is
+one more entry in `themes`.
 
 Two typefaces: Bricolage Grotesque for headlines and figures, Hanken Grotesk
 for everything else.

@@ -10,7 +10,7 @@ import { kindLabel, useLocale, useT } from '@/i18n';
 import { Button, Dot, Empty, Row, SectionTitle } from '@/ui/controls';
 import { Block, Screen } from '@/ui/layout';
 import { T } from '@/ui/Text';
-import { color, pigmentOf, space } from '@/ui/theme';
+import { color, pigmentDot, space } from '@/ui/theme';
 
 export default function PropertiesScreen() {
   const t = useT();
@@ -43,7 +43,7 @@ export default function PropertiesScreen() {
                   subtitle={[kindLabel(p.kind, locale), ...debt].join(', ')}
                   value={money(s.mine, { sign: true })}
                   valueColor={s.mine < 0 ? color.negative : color.ink}
-                  leading={<Dot tint={pigmentOf(p.color)} size={14} />}
+                  leading={<Dot tint={pigmentDot(p.color)} size={14} />}
                   onPress={() => router.push({ pathname: '/property/[id]', params: { id: p.id } })}
                   last={i === active.length - 1}
                 />

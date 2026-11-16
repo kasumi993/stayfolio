@@ -20,7 +20,7 @@ import { Button, Dot, Empty, Notice, Row, SectionTitle, TextLink } from '@/ui/co
 import { Icon } from '@/ui/Icon';
 import { Block, Screen } from '@/ui/layout';
 import { T } from '@/ui/Text';
-import { color, pigmentOf, platformColor, space } from '@/ui/theme';
+import { color, pigmentDot, platformColor, space } from '@/ui/theme';
 
 export default function MonthScreen() {
   const t = useT();
@@ -60,7 +60,7 @@ export default function MonthScreen() {
           {property ? (
             <View style={{ marginTop: space.lg, gap: space.sm }}>
               <Nights bookings={bookings} month={month} />
-              {platforms.length ? <Legend onDark items={platforms.map((p) => ({ label: p, tint: platformColor(p) }))} /> : null}
+              {platforms.length ? <Legend onHero items={platforms.map((p) => ({ label: p, tint: platformColor(p) }))} /> : null}
             </View>
           ) : null}
           <HeroFacts
@@ -116,7 +116,7 @@ export default function MonthScreen() {
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const Headline = ({ text }: { text: string }) => (
-  <T variant="title" color={color.white} style={{ marginTop: space.md, minHeight: 64 }}>
+  <T variant="title" color={color.onHero} style={{ marginTop: space.md, minHeight: 64 }}>
     {text}
   </T>
 );
@@ -144,17 +144,17 @@ function RentLine({ s }: { s: Statement }) {
   ].filter((m) => m.value > 0 && (m.key === 'even' || s.rent < s.expenses));
   return (
     <View style={{ marginTop: space.md }}>
-      <View style={{ height: 12, borderRadius: 6, backgroundColor: color.onDarkFaint }}>
-        <View style={{ width: pct(s.revenue), height: 12, borderRadius: 6, backgroundColor: color.mango }} />
+      <View style={{ height: 12, borderRadius: 6, backgroundColor: color.heroTrack }}>
+        <View style={{ width: pct(s.revenue), height: 12, borderRadius: 6, backgroundColor: color.heroBar }} />
         {marks.map((m) => (
-          <View key={m.key} style={{ position: 'absolute', left: pct(m.value), top: -5, width: 2.5, height: 22, marginLeft: -1.25, borderRadius: 2, backgroundColor: color.white }} />
+          <View key={m.key} style={{ position: 'absolute', left: pct(m.value), top: -5, width: 2.5, height: 22, marginLeft: -1.25, borderRadius: 2, backgroundColor: color.onHero }} />
         ))}
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: space.lg, rowGap: 2, marginTop: space.md }}>
         {marks.map((m) => (
           <View key={m.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            {s.revenue >= m.value ? <Icon name="check" size={14} color={color.mango} weight={3} /> : <View style={{ width: 2.5, height: 12, borderRadius: 2, backgroundColor: color.white }} />}
-            <T variant="small" color={color.onDark}>
+            {s.revenue >= m.value ? <Icon name="check" size={14} color={color.heroMark} weight={3} /> : <View style={{ width: 2.5, height: 12, borderRadius: 2, backgroundColor: color.onHero }} />}
+            <T variant="small" color={color.onHeroSoft}>
               {m.label} {money(m.value)}
             </T>
           </View>
@@ -231,7 +231,7 @@ function Portfolio() {
               value={money(s.mine, { sign: true })}
               valueColor={s.mine < 0 ? color.negative : color.ink}
               note={t('pour moi', 'for me')}
-              leading={<Dot tint={pigmentOf(p.color)} size={12} />}
+              leading={<Dot tint={pigmentDot(p.color)} size={12} />}
               onPress={() => setProperty(p.id)}
               last={i === active.length - 1}
             />

@@ -99,8 +99,8 @@ function TabBar({ state, navigateToTab }: BottomTabBarProps) {
             accessibilityRole="button"
             accessibilityLabel={t('Ajouter', 'Add')}
             onPress={() => (hasProperty ? setAdding(true) : router.push('/property/new'))}
-            style={({ pressed }) => ({ width: 58, height: 58, borderRadius: 29, marginTop: -30, backgroundColor: color.mango, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: color.paper, opacity: pressed ? 0.85 : 1 })}>
-            <Icon name="plus" size={26} color={color.mangoInk} weight={2.6} />
+            style={({ pressed }) => ({ width: 58, height: 58, borderRadius: 29, marginTop: -30, backgroundColor: color.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: color.paper, opacity: pressed ? 0.85 : 1 })}>
+            <Icon name="plus" size={26} color={color.accentInk} weight={2.6} />
           </Pressable>
         </View>
         {TABS.slice(2).map(tab)}

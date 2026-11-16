@@ -25,17 +25,17 @@ export function StatementView({ statement: s, locale, t }: { statement: SharedSt
   return (
     <View>
       <View style={{ backgroundColor: pigmentOf(s.property.color), borderRadius: radius.xl, padding: space.xl }}>
-        <T variant="label" color={color.onDark}>
+        <T variant="label" color={color.onHeroSoft}>
           {t(`Relevé pour ${s.audience}`, `Statement for ${s.audience}`)}
         </T>
-        <T variant="title" color={color.white} style={{ marginTop: 2 }}>
+        <T variant="title" color={color.onHero} style={{ marginTop: 2 }}>
           {s.property.name}
         </T>
-        <T color={color.onDark}>{periodLabel(s, locale)}</T>
-        <T variant="hero" color={color.white} style={{ marginTop: space.lg }} adjustsFontSizeToFit numberOfLines={1}>
+        <T color={color.onHeroSoft}>{periodLabel(s, locale)}</T>
+        <T variant="hero" color={color.onHero} style={{ marginTop: space.lg }} adjustsFontSizeToFit numberOfLines={1}>
           {money(total.net, true)}
         </T>
-        <T color={color.onDark}>
+        <T color={color.onHeroSoft}>
           {total.due > 0.5
             ? t(`Reste à vous verser : ${money(total.due)}`, `Still to be paid to you: ${money(total.due)}`)
             : total.due < -0.5

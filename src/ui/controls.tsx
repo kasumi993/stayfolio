@@ -8,12 +8,14 @@ import { color, radius, space } from './theme';
 
 type Tone = 'primary' | 'dark' | 'quiet' | 'danger';
 
-const tones: Record<Tone, { bg: string; fg: string; border?: string }> = {
-  primary: { bg: color.mango, fg: color.mangoInk },
-  dark: { bg: color.ink, fg: color.white },
-  quiet: { bg: 'transparent', fg: color.ink, border: color.lineStrong },
-  danger: { bg: 'transparent', fg: color.negative, border: color.negativeSoft },
-};
+/** Read at render time, so buttons follow the active theme. */
+const toneOf = (tone: Tone): { bg: string; fg: string; border?: string } =>
+  ({
+    primary: { bg: color.accent, fg: color.accentInk },
+    dark: { bg: color.ink, fg: color.white },
+    quiet: { bg: 'transparent', fg: color.ink, border: color.lineStrong },
+    danger: { bg: 'transparent', fg: color.negative, border: color.negativeSoft },
+  })[tone];
 
 interface ButtonProps {
   label: string;
@@ -27,7 +29,7 @@ interface ButtonProps {
 }
 
 export function Button({ label, onPress, tone = 'primary', icon, busy, disabled, compact, style }: ButtonProps) {
-  const c = tones[tone];
+  const c = toneOf(tone);
   return (
     <Pressable
       accessibilityRole="button"
@@ -84,13 +86,13 @@ export function Chip({ label, selected, onPress, dot }: { label: string; selecte
         paddingHorizontal: 14,
         height: 38,
         borderRadius: radius.pill,
-        backgroundColor: selected ? color.ink : color.surface,
+        backgroundColor: selected ? color.selected : color.surface,
         borderWidth: 1.5,
-        borderColor: selected ? color.ink : color.line,
+        borderColor: selected ? color.selectedBorder : color.line,
         opacity: pressed ? 0.7 : 1,
       })}>
       {dot ? <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: dot }} /> : null}
-      <T variant="label" color={selected ? color.white : color.ink}>
+      <T variant="label" color={selected ? color.onSelected : color.ink}>
         {label}
       </T>
     </Pressable>

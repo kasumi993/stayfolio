@@ -19,17 +19,19 @@ export function Label({ children }: { children: string }) {
   );
 }
 
-const inputStyle = {
-  minHeight: 50,
-  borderRadius: radius.md,
-  backgroundColor: color.surface,
-  borderWidth: 1.5,
-  borderColor: color.line,
-  paddingHorizontal: space.lg,
-  fontFamily: font.text,
-  fontSize: 16,
-  color: color.ink,
-} as const;
+/** Base look of every input. A function, so it follows the active theme. */
+const inputStyle = () =>
+  ({
+    minHeight: 50,
+    borderRadius: radius.md,
+    backgroundColor: color.surface,
+    borderWidth: 1.5,
+    borderColor: color.line,
+    paddingHorizontal: space.lg,
+    fontFamily: font.text,
+    fontSize: 16,
+    color: color.ink,
+  }) as const;
 
 interface FieldProps extends TextInputProps {
   label: string;
@@ -50,7 +52,7 @@ export function Field({ label, suggestions, style, ...rest }: FieldProps) {
         {...rest}
         onFocus={() => setFocused(true)}
         onBlur={() => setTimeout(() => setFocused(false), 150)}
-        style={[inputStyle, focused && { borderColor: color.ink }, rest.multiline && { minHeight: 84, paddingTop: 12, textAlignVertical: 'top' }, style]}
+        style={[inputStyle(), focused && { borderColor: color.ink }, rest.multiline && { minHeight: 84, paddingTop: 12, textAlignVertical: 'top' }, style]}
       />
       {matches.length ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
@@ -88,7 +90,7 @@ export function AmountField({ label, value, onChangeText, currency, autoFocus }:
         keyboardType="numbers-and-punctuation"
         placeholder="0"
         placeholderTextColor={color.inkFaint}
-        style={[inputStyle, { minHeight: 68, fontFamily: font.display, fontSize: 32, borderColor: invalid ? color.negative : color.line }]}
+        style={[inputStyle(), { minHeight: 68, fontFamily: font.display, fontSize: 32, borderColor: invalid ? color.negative : color.line }]}
       />
       {invalid || isFormula(value) || !value ? (
         <T variant="small" color={invalid ? color.negative : color.inkSoft} style={{ marginTop: 6 }}>
@@ -128,8 +130,8 @@ export function Calendar({ value, onChange, rangeStart }: { value: string; onCha
           return (
             <Pressable key={i} disabled={!d} onPress={() => d && onChange(d)} style={{ width: `${100 / 7}%`, height: 42, alignItems: 'center', justifyContent: 'center' }}>
               {d ? (
-                <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? color.ink : inRange ? color.line : 'transparent' }}>
-                  <T variant="label" color={selected ? color.white : d === today() ? color.negative : color.ink}>
+                <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? color.selected : inRange ? color.line : 'transparent' }}>
+                  <T variant="label" color={selected ? color.onSelected : d === today() ? color.negative : color.ink}>
                     {Number(d.slice(8))}
                   </T>
                 </View>
@@ -166,7 +168,7 @@ export function DateFields({ items }: { items: DateItem[] }) {
               accessibilityRole="button"
               accessibilityLabel={item.label}
               onPress={() => setOpen(open === i ? null : i)}
-              style={[inputStyle, { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.md }, open === i && { borderColor: color.ink }]}>
+              style={[inputStyle(), { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.md }, open === i && { borderColor: color.ink }]}>
               <T style={{ flex: 1 }} color={item.value ? color.ink : color.inkFaint} numberOfLines={1}>
                 {item.value ? dayLabel(item.value, locale) : '—'}
               </T>

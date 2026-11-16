@@ -50,13 +50,13 @@ export default function PropertyScreen() {
       <View style={{ backgroundColor: pigmentOf(property.color), paddingTop: insets.top + space.sm, paddingBottom: space.xl, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
         <Column>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginLeft: -8 }}>
-            <IconButton icon="left" label={t('Retour', 'Back')} tint={color.white} onPress={() => (router.canGoBack() ? router.back() : router.replace('/properties'))} />
-            <IconButton icon="edit" label={t('Réglages du bien', 'Property settings')} tint={color.white} onPress={() => router.push({ pathname: '/property/new', params: { id } })} />
+            <IconButton icon="left" label={t('Retour', 'Back')} tint={color.onHero} onPress={() => (router.canGoBack() ? router.back() : router.replace('/properties'))} />
+            <IconButton icon="edit" label={t('Réglages du bien', 'Property settings')} tint={color.onHero} onPress={() => router.push({ pathname: '/property/new', params: { id } })} />
           </View>
-          <T variant="title" color={color.white} style={{ marginTop: space.sm }}>
+          <T variant="title" color={color.onHero} style={{ marginTop: space.sm }}>
             {property.name}
           </T>
-          <T color={color.onDark}>{[kindLabel(property.kind, locale), property.location].filter(Boolean).join(', ')}</T>
+          <T color={color.onHeroSoft}>{[kindLabel(property.kind, locale), property.location].filter(Boolean).join(', ')}</T>
         </Column>
       </View>
 

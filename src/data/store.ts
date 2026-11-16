@@ -14,6 +14,8 @@ import { newId, now } from '@/core/id';
 import { dueOccurrences } from '@/core/recurring';
 import type { SharedStatement } from '@/core/sharing';
 import { type Data, type Doc, type ID, type Month, type Profile, type ShareLink, emptyData } from '@/core/types';
+import { getPref, setPref } from '@/platform/prefs';
+import { type ThemeName, applyTheme, defaultTheme, isThemeName } from '@/ui/theme';
 
 import type { Backend, Session, Table } from './backend';
 import { createDemoBackend } from './demo';
@@ -32,6 +34,8 @@ interface Store {
   month: Month;
   /** Last failure, shown as a banner until dismissed. */
   error: string | null;
+  /** Colour theme, remembered on this device. */
+  theme: ThemeName;
 
   start(): Promise<void>;
   enterDemo(): Promise<void>;
@@ -41,6 +45,7 @@ interface Store {
   syncRecurring(): Promise<void>;
   setProperty(id: ID | null): void;
   setMonth(month: Month): void;
+  setTheme(theme: ThemeName): void;
   clearError(): void;
 
   save<T extends Row>(table: Table, rows: T | T[]): Promise<void>;
@@ -55,6 +60,11 @@ interface Store {
 }
 
 const cloud = cloudConfigured ? createSupabaseBackend() : null;
+
+// Applied before the first screen is drawn, so the app never flashes the wrong colours.
+const savedTheme = getPref('theme');
+const initialTheme: ThemeName = isThemeName(savedTheme) ? savedTheme : defaultTheme;
+applyTheme(initialTheme);
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -92,6 +102,7 @@ export const useStore = create<Store>((set, get) => {
     propertyId: null,
     month: currentMonth(),
     error: null,
+    theme: initialTheme,
 
     async start() {
       if (!cloud) return set({ status: 'signedOut' });
@@ -135,6 +146,11 @@ export const useStore = create<Store>((set, get) => {
 
     setProperty: (propertyId) => set({ propertyId }),
     setMonth: (month) => set({ month }),
+    setTheme(theme) {
+      applyTheme(theme);
+      setPref('theme', theme);
+      set({ theme });
+    },
     clearError: () => set({ error: null }),
 
     async save(table, rows) {

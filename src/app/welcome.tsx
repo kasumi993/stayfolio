@@ -10,7 +10,7 @@ import { Field } from '@/ui/fields';
 import { Column } from '@/ui/layout';
 import { Nights } from '@/ui/charts';
 import { T } from '@/ui/Text';
-import { color, pigment, radius, space } from '@/ui/theme';
+import { color, pigmentOf, radius, space } from '@/ui/theme';
 import { sampleData } from '@/data/demo';
 import { currentMonth } from '@/core/dates';
 
@@ -58,12 +58,12 @@ export default function Welcome() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: color.paper }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + space.xxl }}>
-        <View style={{ backgroundColor: pigment.indigo, paddingTop: insets.top + space.xxl, paddingBottom: space.xxl, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
+        <View style={{ backgroundColor: pigmentOf('indigo'), paddingTop: insets.top + space.xxl, paddingBottom: space.xxl, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
           <Column>
-            <T variant="label" color={color.mango}>
+            <T variant="label" color={color.heroMark}>
               Stayfolio
             </T>
-            <T variant="title" color={color.white} style={{ marginTop: space.sm, marginBottom: space.xl }}>
+            <T variant="title" color={color.onHero} style={{ marginTop: space.sm, marginBottom: space.xl }}>
               {t('Les comptes de tes locations, sans le tableur.', 'Your rental books, without the spreadsheet.')}
             </T>
             <Nights bookings={preview.bookings.filter((b) => b.property_id === preview.properties[0].id)} month={currentMonth()} />

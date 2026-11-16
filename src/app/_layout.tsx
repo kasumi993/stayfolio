@@ -23,9 +23,9 @@ export default function RootLayout() {
     HankenGrotesk_500Medium,
     HankenGrotesk_600SemiBold,
   });
-  const status = useStore((s) => s.status);
-  const signedIn = status === 'ready' || status === 'loading';
-  const ready = fontsReady && status !== 'starting';
+  const starting = useStore((s) => s.status === 'starting');
+  const theme = useStore((s) => s.theme);
+  const ready = fontsReady && !starting;
 
   useEffect(() => {
     void useStore.getState().start();
@@ -35,23 +35,30 @@ export default function RootLayout() {
     if (ready) SplashScreen.hideAsync().catch(() => {});
   }, [ready]);
 
-  // Signed-out visitors only reach the welcome screen and the two public
-  // pages (a shared statement, the password reset). The data itself is
-  // protected server-side; this only decides which screen to show.
+  if (!ready) return null;
+  // Keyed by theme: changing theme re-creates every screen with the new colours.
+  return <Screens key={theme} />;
+}
+
+function Screens() {
+  const status = useStore((s) => s.status);
+  const signedIn = status === 'ready' || status === 'loading';
+
+  // Signed-out visitors only reach the welcome screen and the public pages
+  // (a shared statement, the password reset, the privacy policy). The data
+  // itself is protected server-side; this only decides which screen to show.
   const segments = useSegments();
   const area = segments[0] as string | undefined;
   const isPublic = area === 's' || area === 'reset' || area === 'privacy';
-  const misplaced = ready && !isPublic && (signedIn ? area === 'welcome' : area !== 'welcome');
+  const misplaced = !isPublic && (signedIn ? area === 'welcome' : area !== 'welcome');
   useEffect(() => {
     if (misplaced) router.replace(signedIn ? '/' : '/welcome');
   }, [misplaced, signedIn]);
 
-  if (!ready) return <View style={{ flex: 1, backgroundColor: color.paper }} />;
-
   const modal = { presentation: 'modal' } as const;
   return (
     <>
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.paper } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="welcome" options={{ animation: 'none' }} />
@@ -92,7 +99,7 @@ function ErrorBanner() {
         <T variant="label" color={color.white}>
           {t('Cela n’a pas fonctionné. Vérifie ta connexion et réessaie.', 'That did not work. Check your connection and try again.')}
         </T>
-        <T variant="small" color={color.onDark} numberOfLines={2}>
+        <T variant="small" color={color.whiteSoft} numberOfLines={2}>
           {error}
         </T>
       </Pressable>

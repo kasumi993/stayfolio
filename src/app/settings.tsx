@@ -19,6 +19,8 @@ export default function SettingsScreen() {
   const t = useT();
   const data = useData();
   const session = useStore((s) => s.session);
+  const theme = useStore((s) => s.theme);
+  const setTheme = useStore((s) => s.setTheme);
   const backend = useStore((s) => s.backend);
   const { saveProfile, signOut } = useStore.getState();
   const profile = data.profile;
@@ -53,6 +55,18 @@ export default function SettingsScreen() {
       <View>
         <Label>{t('Langue', 'Language')}</Label>
         <Choice value={profile.locale} onChange={(locale) => save({ locale })} options={[{ value: 'fr' as const, label: 'Français' }, { value: 'en' as const, label: 'English' }]} />
+      </View>
+
+      <View>
+        <Label>{t('Couleurs', 'Colours')}</Label>
+        <Choice
+          value={theme}
+          onChange={setTheme}
+          options={[
+            { value: 'pastel' as const, label: 'Pastel', dot: '#DDD5FB' },
+            { value: 'indigo' as const, label: 'Indigo', dot: '#2B2580' },
+          ]}
+        />
       </View>
 
       <View>
