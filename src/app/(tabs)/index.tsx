@@ -165,6 +165,7 @@ function Summary({ s, property }: { s: Statement; property: Property | null }) {
         {s.rentCovered === false ? <Tag tone="negative" label={t('Loyer non couvert', 'Rent not covered')} /> : null}
         {property && s.parties.length > 1 ? <Tag label={t(`Pour moi : ${money(s.mine, { sign: true })}`, `For me: ${money(s.mine, { sign: true })}`)} /> : null}
         {managed && s.commission ? <Tag label={t(`dont ${money(s.commission)} de commission`, `incl. ${money(s.commission)} commission`)} /> : null}
+        {s.setup ? <Tag label={t(`Hors mise en place : ${money(s.setup)}`, `Set-up costs aside: ${money(s.setup)}`)} /> : null}
       </View>
       {property && (s.rent > 0 || s.expenses > 0) ? (
         <View style={{ gap: space.lg, marginTop: space.xl }}>
@@ -287,7 +288,7 @@ function ExpenseRow({ expense: x, property, last }: { expense: Expense; property
   const hasDoc = useStore((s) => s.data.docs.some((d) => d.expense_id === x.id));
   const label = categoryLabel(x.category, locale);
   const title = x.description || x.vendor || label;
-  const tags = [x.excluded ? t('exclue ce mois', 'excluded this month') : null, x.scope === 'private' ? t('privée', 'private') : null].filter(Boolean);
+  const tags = [x.excluded ? t('exclue ce mois', 'excluded this month') : null, x.scope === 'private' ? t('privée', 'private') : null, x.scope === 'setup' ? t('mise en place', 'set-up') : null].filter(Boolean);
   return (
     <Row
       title={title}

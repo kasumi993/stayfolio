@@ -16,7 +16,6 @@ import { useMoney, usePartiesOf } from '@/features/hooks';
 import { shareUrl } from '@/features/links';
 import { PageHeader } from '@/features/PageHeader';
 import { categoryLabel, dayLabel, de, durationLabel, kindLabel, monthLabel, shareLabel, useLocale, useT } from '@/i18n';
-import { ProgressBar } from '@/ui/charts';
 import { Button, Empty, Row, SectionTitle, TextLink } from '@/ui/controls';
 import { Block, Card, Cols, Screen } from '@/ui/layout';
 import { T } from '@/ui/Text';
@@ -202,73 +201,79 @@ function Owed({ property, b }: { property: Property; b: Balance }) {
 }
 
 /**
- * A partnership: income stays in the business until the partners share the
- * profit, so the question is not "who owes whom" but "have we recovered what
- * we put in, and what does each partner's account hold".
+ * A partnership: the partners funded the set-up, income stays in the business
+ * to pay the running costs, and what is left over is shared now and then. So
+ * the page answers two questions: how much profit is there to share, and has
+ * the property paid back what it cost to set up.
  */
 function Together({ property, payback: pb, balances: bal, rule }: { property: Property; payback: Payback; balances: Balance[]; rule: Rule | null }) {
   const t = useT();
   const locale = useLocale();
   const money = useMoney();
-  const recovering = pb.cumulative < -1;
-  const recovered = pb.invested + pb.cumulative;
+  const sorted = [...bal].sort((a, b) => Number(b.party.is_me) - Number(a.party.is_me));
+  const others = sorted.filter((b) => !b.party.is_me);
+  const left = -pb.cumulative;
   const pace = money(pb.pace, { sign: true });
   const months = t(`${pb.paceMonths} dernier${pb.paceMonths > 1 ? 's' : ''} mois complet${pb.paceMonths > 1 ? 's' : ''}`, `last ${pb.paceMonths} complete month${pb.paceMonths > 1 ? 's' : ''}`);
-  const outlook = !recovering || !pb.paceMonths
+  const outlook = left < 1 || !pb.paceMonths
     ? null
     : pb.monthsLeft
       ? t(`Au rythme des ${months} (${pace} par mois), il faudrait encore ${durationLabel(pb.monthsLeft, locale)}.`, `At the pace of the ${months} (${pace} a month), it would take another ${durationLabel(pb.monthsLeft, locale)}.`)
       : t(`Sur les ${months}, le résultat moyen est de ${pace} par mois : à ce rythme, la mise de départ ne se récupère pas.`, `Over the ${months}, the average result is ${pace} a month: at that pace, the initial outlay is never recovered.`);
-  const sorted = [...bal].sort((a, b) => Number(b.party.is_me) - Number(a.party.is_me));
   return (
     <View style={{ marginBottom: space.lg }}>
       <Card tint={pigmentOf(property.color)}>
         <T variant="label" color={color.inkSoft}>
-          {t('Depuis le début', 'Since the beginning')}
+          {t('Bénéfice depuis le début', 'Profit since the beginning')}
         </T>
-        <T variant="title" style={{ marginTop: 2 }}>
-          {recovering ? t(`Encore ${money(-pb.cumulative)} à récupérer`, `${money(-pb.cumulative)} still to recover`) : t(`${money(pb.cumulative)} de bénéfice`, `${money(pb.cumulative)} of profit`)}
+        <T variant="title" tabular color={pb.profit < -1 ? color.negative : color.ink} style={{ marginTop: 2 }}>
+          {money(pb.profit, { sign: true })}
         </T>
-        {recovering && recovered / pb.invested >= 0.01 ? (
-          <View style={{ marginTop: space.md, gap: 6 }}>
-            <ProgressBar value={recovered / pb.invested} />
-            <T variant="small" color={color.inkSoft}>
-              {t(`${money(recovered)} récupérés sur ${money(pb.invested)} engagés au plus fort.`, `${money(recovered)} recovered out of ${money(pb.invested)} committed at the deepest point.`)}
-            </T>
-          </View>
-        ) : null}
-        {outlook ? (
-          <T variant="small" color={color.inkSoft} style={{ marginTop: space.sm }}>
-            {outlook}
-          </T>
-        ) : null}
+        <T variant="small" color={color.inkSoft} style={{ marginTop: 2 }}>
+          {pb.profit > 1
+            ? t('Revenus moins dépenses courantes. À partager selon les parts ci-dessous.', 'Income minus running costs. To be shared as shown below.')
+            : t('Revenus moins dépenses courantes. Rien à partager pour l’instant.', 'Income minus running costs. Nothing to share for now.')}
+        </T>
       </Card>
       <Block>
-        {sorted.map((b) => (
+        {sorted.map((b, i) => (
           <Row
             key={b.party.id}
             title={b.party.is_me ? t('Ma part', 'My share') : t(`Part ${de(b.party.name)}`, `${b.party.name}’s share`)}
             subtitle={shareLabel(rule?.shares.find((x) => x.party_id === b.party.id), locale) || undefined}
             value={money(b.entitled, { sign: true })}
             valueColor={b.entitled < 0 ? color.negative : color.ink}
+            last={i === sorted.length - 1 && !others.some((o) => o.transfersIn)}
           />
         ))}
-        {sorted
-          .filter((b) => !b.party.is_me)
-          .flatMap((b) => [
-            b.transfersOut ? <Row key={b.party.id + 'in'} title={t(`Apports ${de(b.party.name)}`, `Paid in by ${b.party.name}`)} value={money(b.transfersOut, { sign: true })} /> : null,
-            b.paid ? <Row key={b.party.id + 'paid'} title={t(`Dépenses payées par ${b.party.name}`, `Expenses paid by ${b.party.name}`)} value={money(b.paid, { sign: true })} /> : null,
-            b.received ? <Row key={b.party.id + 'got'} title={t(`Revenus encaissés par ${b.party.name}`, `Income collected by ${b.party.name}`)} value={money(-b.received)} /> : null,
-            b.transfersIn ? <Row key={b.party.id + 'out'} title={t(`Déjà versé à ${b.party.name}`, `Already paid out to ${b.party.name}`)} value={money(-b.transfersIn)} /> : null,
-            <Row
-              key={b.party.id + 'account'}
-              title={t(`Compte ${de(b.party.name)}`, `${b.party.name}’s account`)}
-              subtitle={t('Apports et part du résultat, moins ce qui a déjà été versé', 'Paid in plus share of the result, minus what was already paid out')}
-              value={money(b.balance, { sign: true })}
-              last
-            />,
+        {others
+          .filter((b) => b.transfersIn)
+          .flatMap((b, i, list) => [
+            <Row key={b.party.id + 'out'} title={t(`Déjà versé à ${b.party.name}`, `Already paid out to ${b.party.name}`)} value={money(-b.transfersIn)} />,
+            <Row key={b.party.id + 'due'} title={t(`Reste à verser à ${b.party.name}`, `Still to pay out to ${b.party.name}`)} value={money(b.undistributed, { sign: true })} last={i === list.length - 1} />,
           ])}
       </Block>
+
+      <SectionTitle>{t('Mise de départ', 'Initial outlay')}</SectionTitle>
+      <Block>
+        <Row
+          title={t('Dépenses de mise en place', 'Set-up costs')}
+          subtitle={pb.setup ? t('Payées par les apports, hors bénéfice', 'Paid out of the contributions, outside the profit') : t('Aucune dépense n’est marquée « mise en place »', 'No expense is marked as a set-up cost')}
+          value={money(pb.setup)}
+        />
+        {others.map((b) => (b.transfersOut ? <Row key={b.party.id} title={t(`Apports ${de(b.party.name)}`, `Paid in by ${b.party.name}`)} value={money(b.transfersOut)} /> : null))}
+        <Row
+          title={left >= 1 ? t('Reste à récupérer', 'Still to recover') : t('Mise de départ récupérée', 'Initial outlay recovered')}
+          subtitle={t('Mise en place, moins le bénéfice depuis le début', 'Set-up costs, minus the profit since the beginning')}
+          value={left >= 1 ? money(left) : undefined}
+          last
+        />
+      </Block>
+      {outlook ? (
+        <T variant="small" color={color.inkSoft} style={{ marginTop: space.sm }}>
+          {outlook}
+        </T>
+      ) : null}
     </View>
   );
 }

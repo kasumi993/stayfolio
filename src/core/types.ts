@@ -78,7 +78,7 @@ export interface Booking {
   created_at: string;
 }
 
-export type ExpenseScope = 'property' | 'private';
+export type ExpenseScope = 'property' | 'private' | 'setup';
 
 export interface Expense {
   id: ID;
@@ -94,8 +94,11 @@ export interface Expense {
   amount: number;
   fx_rate: number;
   /**
-   * `property`: a cost of the property, split between parties.
+   * `property`: a running cost of the property, split between parties.
    * `private`: my own professional cost. Never shown to owners or partners.
+   * `setup`: what it cost to get the property ready, paid out of what the
+   *   partners put in. Kept out of the monthly result and of the profit to
+   *   share; counted when asking whether the property has paid for itself.
    */
   scope: ExpenseScope;
   /** Charge the whole expense to one party instead of splitting it. */
@@ -118,7 +121,7 @@ export interface Recurring {
   currency: string;
   amount: number;
   fx_rate: number;
-  scope: ExpenseScope;
+  scope: Exclude<ExpenseScope, 'setup'>;
   paid_by: ID | null;
   /** Day of the month the expense is dated, 1..28. */
   day: number;

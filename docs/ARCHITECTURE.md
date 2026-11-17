@@ -61,12 +61,21 @@ look at it.
 - **Balances.** For each party: what they are entitled to (their share of the
   result) minus the cash they hold (payouts received − expenses paid ±
   transfers). The balances of a property always add up to zero.
+- **Set-up costs** (`scope: 'setup'`) are what it cost to get a property
+  ready, paid out of what the partners put in. They stay out of the monthly
+  result and of every party's share; they only count in the running result
+  since the first entry (`cumulative`), which says what is left to recover.
 - **Partnerships** (`kind: 'partnership'`) keep their income in the business
-  and share the profit now and then, so the property page does not say "who
-  owes whom". It shows what is left to recover since the first entry, the pace
-  of the last complete months (`payback`), and each partner's account: what
-  they paid in, plus their share of the result, minus what they were paid out.
-  Money a partner puts in or takes out is a transfer.
+  to pay the running costs and share what is left now and then. Their page
+  therefore does not say "who owes whom". It shows the profit since the
+  beginning (set-up aside) with each partner's share, what was already paid
+  out, then the initial outlay: set-up costs, what each partner paid in, what
+  is left to recover and how long that takes at the recent pace (`payback`).
+  A transfer from a partner is a contribution; a transfer to a partner is
+  profit paid out.
+- **People stay.** A partner or owner who already appears in the accounts
+  cannot be deleted (past months and payments would stop adding up). They
+  leave by having their shares set to zero from a given month.
 - **Month of a booking** is the check-in month (as in the Excel tracker), or
   the payout month if the property is set that way.
 

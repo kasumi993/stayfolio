@@ -79,7 +79,7 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
   const [chargedTo, setChargedTo] = useState(existing?.charged_to ?? null);
   const [paidBy, setPaidBy] = useState(existing?.paid_by ?? null);
   const [excluded, setExcluded] = useState(existing?.excluded ?? false);
-  const [more, setMore] = useState(false);
+  const [more, setMore] = useState(existing ? existing.scope !== 'property' || existing.charged_to !== null : false);
   const [busy, setBusy] = useState(false);
   const { propertyId, setPropertyId, options } = usePropertyChoice(existing ? existing.property_id : undefined, true);
   const { rate, custom, setCustom, fallback, foreign } = useRate(currency, existing?.fx_rate);
@@ -93,7 +93,8 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
   const vendors = useMemo(() => [...new Set(data.expenses.map((x) => x.vendor).filter(Boolean))], [data.expenses]);
   const value = evalAmount(amount);
   // A general cost belongs to no property, so it can only be private.
-  const effectiveScope = propertyId ? scope : 'private';
+  const managed = data.properties.find((p) => p.id === propertyId)?.kind === 'managed';
+  const effectiveScope = !propertyId ? 'private' : scope === 'setup' && managed ? 'property' : scope;
 
   /** Asks the server to read the receipt and fills in what is still empty. */
   async function read(picked: PickedFile) {
@@ -242,19 +243,22 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
               <View>
                 <Label>{t('À la charge de', 'Charged to')}</Label>
                 <Choice
-                  value={effectiveScope === 'private' ? 'private' : (chargedTo ?? 'split')}
+                  value={effectiveScope === 'property' ? (chargedTo ?? 'split') : effectiveScope}
                   onChange={(v) => {
-                    setScope(v === 'private' ? 'private' : 'property');
-                    setChargedTo(v === 'private' || v === 'split' ? null : v);
+                    setScope(v === 'private' || v === 'setup' ? v : 'property');
+                    setChargedTo(v === 'private' || v === 'setup' || v === 'split' ? null : v);
                   }}
                   options={[
                     { value: 'split', label: t('Selon les règles du bien', 'Per the property rules') },
                     ...parties.map((p) => ({ value: p.id, label: p.is_me ? t('Moi seule', 'Me only') : t(`${p.name} seul·e`, `${p.name} only`) })),
+                    ...(managed ? [] : [{ value: 'setup', label: t('Mise en place', 'Set-up cost') }]),
                     { value: 'private', label: t('Privée (mes frais)', 'Private (my costs)') },
                   ]}
                 />
                 <T variant="small" color={color.inkSoft} style={{ marginTop: 6 }}>
-                  {t('Une dépense privée compte dans ma rentabilité, jamais dans les comptes du bien ni dans un relevé partagé.', 'A private expense counts in my own profitability, never in the property books or a shared statement.')}
+                  {effectiveScope === 'setup'
+                    ? t('Une dépense de mise en place est payée par les apports de départ : elle ne compte ni dans le résultat du mois ni dans le bénéfice à partager, seulement dans ce qu’il reste à récupérer.', 'A set-up cost is paid out of the initial contributions: it counts neither in the month’s result nor in the profit to share, only in what is left to recover.')
+                    : t('Une dépense privée compte dans ma rentabilité, jamais dans les comptes du bien ni dans un relevé partagé.', 'A private expense counts in my own profitability, never in the property books or a shared statement.')}
                 </T>
               </View>
               {parties.length > 1 ? (

@@ -60,6 +60,11 @@ export default function ReportsScreen() {
               <Tile key="occ" label={t('Occupation', 'Occupancy')} value={`${Math.round(occ.rate * 100)} %`} note={t(`${occ.booked} nuits louées`, `${occ.booked} nights booked`)} tint={color.tintOccupancy} aside={<Ring value={occ.rate} size={44} stroke={6} />} />,
             ]}
           </Tiles>
+          {total.setup ? (
+            <T variant="small" color={color.inkSoft} style={{ marginTop: space.sm }}>
+              {t(`Hors mise en place : ${money(total.setup)} payés par les apports de départ. La courbe du résultat cumulé, elle, les compte.`, `Set-up costs aside: ${money(total.setup)} paid out of the initial contributions. The running result does count them.`)}
+            </T>
+          ) : null}
 
           <Cols ratio={[3, 2]}>
             <View>

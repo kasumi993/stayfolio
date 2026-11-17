@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { balances, monthStatement, occupancy, payback, propertyStatement, series, statement } from '../src/core/calc';
 import { addMonths, dateInMonth, diffDays, excelSerialToISO, monthRange } from '../src/core/dates';
-import { planImport } from '../src/core/importWorkbook';
+import { planImport, withSetup } from '../src/core/importWorkbook';
 import { evalAmount, formatMoney, formatNumber } from '../src/core/money';
 import { dueOccurrences } from '../src/core/recurring';
 import { buildSharedStatement } from '../src/core/sharing';
@@ -108,6 +108,30 @@ describe('calc', () => {
     expect(payback(emptyData(), 'p', '2026-05')).toBeNull();
   });
 
+  it('keeps set-up costs out of the result, but not out of what is left to recover', () => {
+    const d = managed();
+    d.properties[0].kind = 'partnership';
+    d.rules[0] = { ...d.rules[0], commission_rate: 0, shares: [{ party_id: 'me', revenue: 0.6, expense: 0.6 }, { party_id: 'ow', revenue: 0.4, expense: 0.4 }] };
+    d.bookings.forEach((b) => (b.commission_rate = null));
+    d.expenses.push({ ...d.expenses[0], id: 'kit', category: 'equipment', amount: 500000, scope: 'setup' });
+    d.transfers.push({ id: 't1', property_id: 'p', date: '2026-03-01', from_party: 'ow', to_party: 'me', amount: 250000, note: '', created_at: '' });
+    const s = monthStatement(d, 'p', '2026-03');
+    expect([s.revenue, s.expenses, s.setup, s.net]).toEqual([150000, 10000, 500000, 140000]);
+    expect(s.byCategory.equipment).toBeUndefined();
+    expect(s.parties.map((l) => l.net)).toEqual([84000, 56000]);
+    expect(series(d, 'p', ['2026-03'])[0].cumulative).toBe(-360000);
+    // What she put in is not profit paid out: her 40 % is still due in full.
+    const partner = balances(d, 'p').find((b) => !b.party.is_me)!;
+    expect(partner.undistributed).toBe(56000);
+    d.transfers.push({ id: 't2', property_id: 'p', date: '2026-03-31', from_party: 'me', to_party: 'ow', amount: 50000, note: '', created_at: '' });
+    expect(balances(d, 'p').find((b) => !b.party.is_me)!.undistributed).toBe(6000);
+    // A partner's statement lists the set-up costs apart from the running ones.
+    const shared = buildSharedStatement(d, 'p', 'ow', ['2026-03'], { showCommission: true });
+    expect(shared.setup).toHaveLength(1);
+    expect(shared.expenses).toHaveLength(1);
+    expect(shared.totals.expenses).toBe(10000);
+  });
+
   it('applies rule changes from their effective month only', () => {
     const d = managed();
     d.rules.push({ id: 'r2', property_id: 'p', effective_from: '2026-04', commission_rate: 0.15, shares: d.rules[0].shares });
@@ -168,8 +192,10 @@ describe.skipIf(!sample || !existsSync(sample))('import of the real workbook', (
     expect(plan.bookings).toHaveLength(41);
     expect(plan.expenses).toHaveLength(85);
     expect(plan.parties.map((p) => p.name)).toEqual(['Khady', 'Mareme']);
-    // Income is shared 60/40 (one partner runs the place), expenses 50/50.
-    expect(plan.rule.shares.map((s) => [s.revenue, s.expense])).toEqual([[0.6, 0.5], [0.4, 0.5]]);
+    // What the place earns is shared 60/40; the workbook's 50/50 is how it was funded.
+    expect(plan.rule.shares.map((s) => [s.revenue, s.expense])).toEqual([[0.6, 0.6], [0.4, 0.4]]);
+    // The first month's purchases, rent aside, are proposed as set-up costs.
+    expect(plan.setupIds).toHaveLength(18);
     expect(plan.transfers.reduce((t, x) => t + x.amount, 0)).toBe(1208000);
     expect(plan.recurring[0]).toMatchObject({ category: 'rent', amount: 450000, start_month: '2026-12' });
     expect(plan.warnings).toEqual([]);
@@ -196,13 +222,21 @@ describe.skipIf(!sample || !existsSync(sample))('import of the real workbook', (
     expect(monthStatement(d, plan.property.id, '2026-05').rentCovered).toBe(true);
     const pts = series(d, plan.property.id, monthRange('2026-04', '2026-11'));
     expect(pts[7].cumulative).toBeCloseTo(-1825683.757, 2);
-    // Each partner bears half of the expenses, as in columns J and K, and the
-    // partner's account is what she paid in plus her share of the result.
-    const s = propertyStatement(d, plan.property, () => true);
-    expect(Math.round(s.parties[1].expenses)).toBe(3051727);
-    expect(s.parties.map((l) => Math.round(l.net))).toEqual([-485065, -1340619]);
-    const partner = balances(d, plan.property.id).find((b) => !b.party.is_me)!;
-    expect(Math.round(partner.balance)).toBe(1208000 - 1340619);
+    // With the first month's purchases counted as set-up costs, the profit to
+    // share leaves them aside, and what is left to recover still counts them.
+    const tagged = withSetup(plan);
+    const e: Data = { ...d, expenses: tagged.expenses };
+    const s = propertyStatement(e, plan.property, () => true);
+    expect(Math.round(s.setup)).toBe(1599806);
+    expect(s.net - s.setup).toBeCloseTo(-1825683.757, 2);
+    expect(s.parties.map((l) => Math.round(l.net))).toEqual([-135527, -90351]);
+    expect(monthStatement(e, plan.property.id, '2026-04').expenses).toBe(450000);
+    const partner = balances(e, plan.property.id).find((b) => !b.party.is_me)!;
+    expect(partner.transfersOut).toBe(1208000);
+    expect(Math.round(partner.undistributed)).toBe(-90351);
+    expect(series(e, plan.property.id, monthRange('2026-04', '2026-11'))[7].cumulative).toBeCloseTo(-1825683.757, 2);
+    const q = payback(e, plan.property.id, '2026-11')!;
+    expect([Math.round(q.setup), Math.round(q.profit), q.monthsLeft]).toEqual([1599806, -225878, 52]);
     const p = payback(d, plan.property.id, '2026-11')!;
     expect(Math.round(p.cumulative)).toBe(-1825684);
     expect(p.paceMonths).toBe(6);

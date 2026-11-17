@@ -7,13 +7,13 @@ import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { monthStatement, statement } from '@/core/calc';
-import { type ImportPlan, planImport } from '@/core/importWorkbook';
+import { type ImportPlan, planImport, withSetup } from '@/core/importWorkbook';
 import { type Data, emptyData } from '@/core/types';
 import { useStore } from '@/data/store';
 import { useMoney } from '@/features/hooks';
 import { de, monthLabel, shareLabel, useLocale, useT } from '@/i18n';
 import { pickWorkbook } from '@/platform/pick';
-import { Button, Notice, Row, SectionTitle } from '@/ui/controls';
+import { Button, Notice, Row, SectionTitle, Toggle } from '@/ui/controls';
 import { Field } from '@/ui/fields';
 import { Block, FormScreen } from '@/ui/layout';
 import { T } from '@/ui/Text';
@@ -24,7 +24,10 @@ export default function ImportScreen() {
   const locale = useLocale();
   const money = useMoney();
   const applyImport = useStore((s) => s.applyImport);
-  const [plan, setPlan] = useState<ImportPlan | null>(null);
+  const [raw, setPlan] = useState<ImportPlan | null>(null);
+  // Set-up costs stay out of the profit the partners share: on by default when there is a partner.
+  const [asSetup, setAsSetup] = useState(true);
+  const plan = useMemo(() => (raw && asSetup ? withSetup(raw) : raw), [raw, asSetup]);
   const [name, setName] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -39,7 +42,7 @@ export default function ImportScreen() {
     if (!plan || !preview) return null;
     const matching = plan.dashboard.filter((row) => {
       const s = monthStatement(preview, plan.property.id, row.month);
-      return Math.abs(s.revenue - row.revenue) < 1 && Math.abs(s.expenses - row.expenses) < 1;
+      return Math.abs(s.revenue - row.revenue) < 1 && Math.abs(s.expenses + s.setup - row.expenses) < 1;
     });
     return { total: plan.dashboard.length, matching: matching.length, all: statement(preview, plan.property.id, () => true) };
   }, [plan, preview]);
@@ -51,6 +54,7 @@ export default function ImportScreen() {
       if (!file) return;
       const next = planImport(file.bytes, file.name);
       setPlan(next);
+      setAsSetup(next.parties.length > 1);
       setName(next.property.name);
     } catch (e) {
       const code = e instanceof Error ? e.message : '';
@@ -86,6 +90,8 @@ export default function ImportScreen() {
   }
 
   const partner = plan.parties.find((p) => !p.is_me);
+  const first = plan.rule.effective_from;
+  const running = plan.expenses.filter((x) => x.scope !== 'setup').length;
   return (
     <FormScreen title={t('Vérifier avant d’importer', 'Check before importing')} footer={<Button label={t('Importer ce bien', 'Import this property')} onPress={() => void confirm()} busy={busy} />}>
       <Field label={t('Nom du bien', 'Property name')} value={name} onChangeText={setName} />
@@ -101,12 +107,22 @@ export default function ImportScreen() {
         <Notice key={w} text={w} />
       ))}
 
+      {raw?.setupIds.length ? (
+        <Toggle
+          value={asSetup}
+          onChange={setAsSetup}
+          label={t(`Compter les achats ${de(monthLabel(first, locale).toLowerCase())} comme mise en place`, `Count the ${monthLabel(first, locale)} purchases as set-up costs`)}
+          hint={t(`${raw.setupIds.length} dépenses du premier mois, loyer mis à part. Payées par les apports, elles sortent du résultat des mois et du bénéfice à partager. Chacune se change ensuite.`, `${raw.setupIds.length} expenses of the first month, rent aside. Paid out of the contributions, they stay out of the monthly results and of the profit to share. Each can be changed later.`)}
+        />
+      ) : null}
+
       <View>
         <SectionTitle>{t('Ce qui sera importé', 'What will be imported')}</SectionTitle>
         <Block>
           <Row title={t('Revenus', 'Income')} subtitle={t(`${plan.bookings.length} versements, ${check.all.nights} nuits`, `${plan.bookings.length} payouts, ${check.all.nights} nights`)} value={money(check.all.revenue)} />
-          <Row title={t('Dépenses', 'Expenses')} subtitle={t(`${plan.expenses.length} lignes`, `${plan.expenses.length} rows`)} value={money(-check.all.expenses)} />
-          <Row title={t('Résultat cumulé', 'Cumulative result')} value={money(check.all.net, { sign: true })} valueColor={check.all.net < 0 ? color.negative : color.positive} />
+          <Row title={t('Dépenses', 'Expenses')} subtitle={t(`${running} lignes`, `${running} rows`)} value={money(-check.all.expenses)} />
+          {check.all.setup ? <Row title={t('Mise en place', 'Set-up costs')} subtitle={t(`${plan.expenses.length - running} lignes, hors résultat des mois`, `${plan.expenses.length - running} rows, outside the monthly results`)} value={money(-check.all.setup)} /> : null}
+          <Row title={t('Résultat cumulé', 'Cumulative result')} subtitle={check.all.setup ? t('Mise en place comprise', 'Set-up costs included') : undefined} value={money(check.all.net - check.all.setup, { sign: true })} valueColor={check.all.net - check.all.setup < 0 ? color.negative : color.positive} />
           {plan.transfers.length ? <Row title={t(`Versements ${de(partner?.name ?? '')}`, `Payments from ${partner?.name ?? ''}`)} subtitle={t(`${plan.transfers.length} versements`, `${plan.transfers.length} payments`)} value={money(plan.transfers.reduce((s, x) => s + x.amount, 0))} /> : null}
           {plan.rule.shares.map((s, i, list) => {
             const party = plan.parties.find((p) => p.id === s.party_id);

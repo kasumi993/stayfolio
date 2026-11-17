@@ -7,7 +7,7 @@
  */
 import { addMonths, excelSerialToISO, isISODate, monthOf } from './dates';
 import { newId, now } from './id';
-import type { Booking, Expense, Month, Party, Property, Recurring, Rule, Transfer } from './types';
+import type { Booking, Expense, ID, Month, Party, Property, Recurring, Rule, Transfer } from './types';
 import { type Cell, type Workbook, readWorkbook, toRows } from './xlsx';
 
 export interface ImportPlan {
@@ -21,6 +21,12 @@ export interface ImportPlan {
   recurring: Recurring[];
   /** Default rates found in the workbook, e.g. { EUR: 655.957 }. */
   fx: Record<string, number>;
+  /**
+   * Expenses that look like set-up costs: everything spent in the first month
+   * except the rent. The user decides whether to import them as such
+   * (`withSetup`).
+   */
+  setupIds: ID[];
   /** Monthly figures from the workbook's own dashboard, to check the import against. */
   dashboard: { month: Month; revenue: number; expenses: number }[];
   warnings: string[];
@@ -104,25 +110,18 @@ export function planImport(bytes: Uint8Array, fileName = ''): ImportPlan {
   const created = now();
   const me: Party = { id: newId(), property_id: propertyId, name: nameA, is_me: true };
   const parties: Party[] = [me];
-  // The workbook shares income and expenses with two separate ratios (60/40
-  // and 50/50 in the original): the partners funded the place equally, and
-  // the one who runs it earns a larger share of the income.
-  const shares = [
-    {
-      party_id: me.id,
-      revenue: num(setupValue('revenue split a')) ?? 1,
-      expense: num(setupValue('expense split a')) ?? 1,
-    },
-  ];
+  // The workbook's "Revenue Split" (60/40 in the original) is how the partners
+  // share what the property earns once its running costs are paid, so it
+  // applies to income and expenses alike. Its "Expense Split" (50/50) is how
+  // they funded the place: what each put in is imported below as payments.
+  const splitA = num(setupValue('revenue split a')) ?? 1;
+  const splitB = num(setupValue('revenue split b')) ?? 0;
+  const shares = [{ party_id: me.id, revenue: splitA, expense: splitA }];
   let partner: Party | null = null;
   if (nameB) {
     partner = { id: newId(), property_id: propertyId, name: nameB, is_me: false };
     parties.push(partner);
-    shares.push({
-      party_id: partner.id,
-      revenue: num(setupValue('revenue split b')) ?? 0,
-      expense: num(setupValue('expense split b')) ?? 0,
-    });
+    shares.push({ party_id: partner.id, revenue: splitB, expense: splitB });
   }
 
   const property: Property = {
@@ -240,6 +239,8 @@ export function planImport(bytes: Uint8Array, fileName = ''): ImportPlan {
     shares,
   };
 
+  const setupIds = expenses.filter((x) => x.month === first && x.category !== 'rent').map((x) => x.id);
+
   // --- Rent becomes a recurring expense from the month after the last one --
   const recurring: Recurring[] = [];
   const rents = expenses.filter((x) => x.category === 'rent').sort((a, b) => a.month.localeCompare(b.month));
@@ -285,7 +286,14 @@ export function planImport(bytes: Uint8Array, fileName = ''): ImportPlan {
     transfers,
     recurring,
     fx: { EUR: eurRate },
+    setupIds,
     dashboard,
     warnings,
   };
 }
+
+/** The plan with its first-month expenses (rent aside) counted as set-up costs. */
+export const withSetup = (plan: ImportPlan): ImportPlan => ({
+  ...plan,
+  expenses: plan.expenses.map((x) => (plan.setupIds.includes(x.id) ? { ...x, scope: 'setup' } : x)),
+});

@@ -66,6 +66,8 @@ export interface Statement {
   commission: number;
   /** My private costs: never part of the property's books. */
   privateExpenses: number;
+  /** Set-up costs of the period: paid out of the partners' contributions, outside `net`. */
+  setup: number;
   /** What the period is worth to me: my share + commission − private costs. */
   mine: number;
   byPlatform: Record<string, number>;
@@ -89,6 +91,7 @@ const emptyStatement = (): Statement => ({
   breakEvenPerNight: null,
   commission: 0,
   privateExpenses: 0,
+  setup: 0,
   mine: 0,
   byPlatform: {},
   byCategory: {},
@@ -146,6 +149,10 @@ export function propertyStatement(data: Data, property: Property, inPeriod: Peri
       s.privateExpenses += amount;
       continue;
     }
+    if (x.scope === 'setup') {
+      s.setup += amount;
+      continue;
+    }
     s.expenses += amount;
     add(s.byCategory, x.category, amount);
     if (x.category === 'rent') s.rent += amount;
@@ -181,6 +188,7 @@ export function portfolioStatement(data: Data, inPeriod: Period): Statement {
     s.nights += p.nights;
     s.commission += p.commission;
     s.privateExpenses += p.privateExpenses;
+    s.setup += p.setup;
     s.mine += p.mine;
     for (const [k, v] of Object.entries(p.byPlatform)) add(s.byPlatform, k, v);
     for (const [k, v] of Object.entries(p.byCategory)) add(s.byCategory, k, v);
@@ -212,7 +220,9 @@ export interface SeriesPoint {
   revenue: number;
   expenses: number;
   net: number;
-  /** Net result accumulated since the very first entry, as in the Excel dashboard. */
+  /** Set-up costs of the month, outside `net`. */
+  setup: number;
+  /** Everything earned minus everything spent, set-up included, since the very first entry (as in the Excel dashboard). */
   cumulative: number;
   nights: number;
   rentCovered: boolean | null;
@@ -222,15 +232,17 @@ export interface SeriesPoint {
 /** One point per month, with the running total carried in from earlier months. */
 export function series(data: Data, propertyId: ID | null, months: Month[]): SeriesPoint[] {
   if (!months.length) return [];
-  let cumulative = statement(data, propertyId, (m) => m < months[0]).net;
+  const before = statement(data, propertyId, (m) => m < months[0]);
+  let cumulative = before.net - before.setup;
   return months.map((month) => {
     const s = monthStatement(data, propertyId, month);
-    cumulative += s.net;
+    cumulative += s.net - s.setup;
     return {
       month,
       revenue: s.revenue,
       expenses: s.expenses,
       net: s.net,
+      setup: s.setup,
       cumulative,
       nights: s.nights,
       rentCovered: s.rentCovered,
@@ -253,6 +265,11 @@ export interface Balance {
   held: number;
   /** entitled − held. Positive: the party is owed money. Negative: they owe. */
   balance: number;
+  /**
+   * Their share of the result that has not reached them yet, leaving aside
+   * what they put in: what a partnership still has to pay them out of the profit.
+   */
+  undistributed: number;
 }
 
 /**
@@ -289,6 +306,7 @@ export function balances(data: Data, propertyId: ID, inPeriod: Period = () => tr
       transfersOut,
       held,
       balance: line.net - held,
+      undistributed: line.net - received + paid - transfersIn,
     };
   });
 }
@@ -308,7 +326,7 @@ export function dataSpan(data: Data, propertyId: ID | null): { first: Month; las
 }
 
 export interface Payback {
-  /** Result accumulated since the first entry. Negative: still to recover. */
+  /** Earned minus spent since the first entry, set-up included. Negative: still to recover. */
   cumulative: number;
   /** The deepest the running result has been: what had to be put on the table. */
   invested: number;
@@ -318,12 +336,17 @@ export interface Payback {
   paceMonths: number;
   /** Months still needed at that pace, the month in progress included. Null when nothing is left to recover or the pace never gets there. */
   monthsLeft: number | null;
+  /** Expenses marked as set-up costs. */
+  setup: number;
+  /** Result since the first entry, set-up costs aside: what there is to share. */
+  profit: number;
 }
 
 /**
- * Has the property paid back what it cost to set up? The first month is left
- * out of the pace because it carries the set-up costs, and the month in
- * progress because its income is not all in yet.
+ * Has the property paid back what it cost to set up? The pace is the average
+ * monthly result (set-up costs aside). The first month is left out of it
+ * because it is rarely a normal month, and the month in progress because its
+ * income is not all in yet.
  */
 export function payback(data: Data, propertyId: ID, today: Month): Payback | null {
   const span = dataSpan(data, propertyId);
@@ -338,7 +361,8 @@ export function payback(data: Data, propertyId: ID, today: Month): Payback | nul
   // progress (rent paid, income still to come) does not skew the estimate.
   const left = closed.length ? -closed[closed.length - 1].cumulative : -cumulative;
   const monthsLeft = left > 0 && pace > 0 ? Math.ceil(left / pace) : null;
-  return { cumulative, invested, pace, paceMonths: complete.length, monthsLeft };
+  const setup = points.reduce((t, p) => t + p.setup, 0);
+  return { cumulative, invested, pace, paceMonths: complete.length, monthsLeft, setup, profit: cumulative + setup };
 }
 
 export interface Occupancy {

@@ -25,6 +25,8 @@ export interface SharedStatement {
   period: { from: Month; to: Month };
   bookings: { check_in: ISODate; check_out: ISODate | null; nights: number; platform: string; amount: number }[];
   expenses: { date: ISODate; category: string; vendor: string; description: string; amount: number }[];
+  /** Set-up costs of the period, listed apart. Absent from statements published before they existed. */
+  setup?: { date: ISODate; category: string; vendor: string; description: string; amount: number }[];
   /** Money already exchanged with the audience during the period. */
   transfers: { date: ISODate; received: boolean; amount: number; note: string }[];
   months: { month: Month; revenue: number; expenses: number }[];
@@ -83,16 +85,19 @@ export function buildSharedStatement(
     })
     .sort((a, b) => a.check_in.localeCompare(b.check_in));
 
-  const expenses = s.expenseRows
-    .filter((x) => x.scope === 'property' && !x.excluded)
-    .map((x) => ({
-      date: x.date,
-      category: x.category,
-      vendor: x.vendor,
-      description: x.description,
-      amount: money(base(x)),
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const rowsOf = (scope: 'property' | 'setup') =>
+    s.expenseRows
+      .filter((x) => x.scope === scope && !x.excluded)
+      .map((x) => ({
+        date: x.date,
+        category: x.category,
+        vendor: x.vendor,
+        description: x.description,
+        amount: money(base(x)),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  const expenses = rowsOf('property');
+  const setup = rowsOf('setup');
 
   const transfers = data.transfers
     .filter(
@@ -114,6 +119,7 @@ export function buildSharedStatement(
     period: { from: sorted[0], to: sorted[sorted.length - 1] },
     bookings,
     expenses,
+    setup,
     transfers,
     months: sorted.map((month) => {
       const m = propertyStatement(data, property, (x) => x === month);

@@ -88,6 +88,12 @@ export function sampleData(): Data {
     );
   });
   d.expenses.push(expense(null, dateInMonth(currentMonth(), 2), 'other', 'Canva', 'Abonnement photos annonces', 8500, { scope: 'private' }));
+  // What it cost to get the studio ready, paid out of the two partners' contributions.
+  d.expenses.push(
+    expense(studio.id, dateInMonth(months[0], 2), 'equipment', 'Orca', 'Lit, canapé et rangements', 420000, { scope: 'setup' }),
+    expense(studio.id, dateInMonth(months[0], 3), 'equipment', 'ElectroMénager Dakar', 'Machine à laver et frigo', 310000, { scope: 'setup' }),
+    expense(studio.id, dateInMonth(months[0], 6), 'supplies', 'Marché HLM', 'Draps, serviettes et vaisselle', 95000, { scope: 'setup' }),
+  );
   d.transfers.push({ id: newId(), property_id: studio.id, date: dateInMonth(months[0], 4), from_party: studio.other, to_party: studio.me, amount: 400000, note: 'Apport de départ', created_at: created });
   return d;
 }

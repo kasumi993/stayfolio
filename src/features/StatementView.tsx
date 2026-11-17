@@ -97,6 +97,20 @@ export function StatementView({ statement: s, locale, t }: { statement: SharedSt
         <T color={color.inkSoft}>{t('Aucune dépense sur la période.', 'No expenses in this period.')}</T>
       )}
 
+      {s.setup?.length ? (
+        <>
+          <SectionTitle>{t('Mise en place', 'Set-up costs')}</SectionTitle>
+          <T color={color.inkSoft} style={{ marginBottom: space.sm }}>
+            {t(`${money(s.setup.reduce((sum, x) => sum + x.amount, 0))} payés par les apports de départ, hors résultat de la période.`, `${money(s.setup.reduce((sum, x) => sum + x.amount, 0))} paid out of the initial contributions, outside the result of the period.`)}
+          </T>
+          <Block>
+            {s.setup.map((x, i, list) => (
+              <Row key={i} title={x.description || categoryLabel(x.category, locale)} subtitle={[categoryLabel(x.category, locale), x.vendor, dayLabel(x.date, locale)].filter(Boolean).join(', ')} value={money(-x.amount)} last={i === list.length - 1} />
+            ))}
+          </Block>
+        </>
+      ) : null}
+
       {s.transfers.length ? (
         <>
           <SectionTitle>{t('Versements', 'Payments')}</SectionTitle>

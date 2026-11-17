@@ -49,16 +49,6 @@ export function Progress({ label, value, target, note, done }: { label: string; 
   );
 }
 
-/** A bare gauge, for places that write their own caption. `value` runs from 0 to 1. */
-export function ProgressBar({ value }: { value: number }) {
-  const pct = Math.min(1, Math.max(0, value));
-  return (
-    <View style={{ height: 6, borderRadius: 3, backgroundColor: color.whiteSoft }}>
-      <View style={{ width: `${pct * 100}%`, minWidth: pct > 0 ? 6 : 0, height: 6, borderRadius: 3, backgroundColor: color.ink }} />
-    </View>
-  );
-}
-
 export function Legend({ items }: { items: { label: string; tint: string }[] }) {
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: space.lg, rowGap: 4 }}>
