@@ -15,7 +15,7 @@ const sample = process.env.STAYFOLIO_SAMPLE_XLSX ?? '';
 /** A managed property: the owner gets everything minus my 13 % commission. */
 function managed(): Data {
   const d = emptyData();
-  d.properties.push({ id: 'p', name: 'Villa', location: '', kind: 'managed', color: 'indigo', revenue_basis: 'checkin', payout_party_id: null, archived: false, created_at: '' });
+  d.properties.push({ id: 'p', name: 'Villa', location: '', kind: 'managed', color: 'indigo', revenue_basis: 'checkin', payout_party_id: null, deposit: 0, notes: '', archived: false, created_at: '' });
   d.parties.push({ id: 'me', property_id: 'p', name: 'Moi', is_me: true }, { id: 'ow', property_id: 'p', name: 'Awa', is_me: false });
   d.rules.push({ id: 'r', property_id: 'p', effective_from: '2026-01', commission_rate: 0.13, shares: [{ party_id: 'ow', revenue: 1, expense: 1 }, { party_id: 'me', revenue: 0, expense: 0 }] });
   const b = { property_id: 'p', platform: 'Airbnb', guest: '', received_on: null, currency: 'XOF', fx_rate: 1, commission_rate: null, received_by: null, notes: '', created_at: '' };

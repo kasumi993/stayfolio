@@ -14,7 +14,7 @@ import { useData, useStore } from '@/data/store';
 import { usePartiesOf } from '@/features/hooks';
 import { kindLabel, useLocale, useT } from '@/i18n';
 import { Button, Choice, ConfirmButton } from '@/ui/controls';
-import { Field, Label } from '@/ui/fields';
+import { AmountField, Field, Label } from '@/ui/fields';
 import { Icon } from '@/ui/Icon';
 import { FormScreen } from '@/ui/layout';
 import { T } from '@/ui/Text';
@@ -37,6 +37,8 @@ export default function PropertyForm() {
   const [kind, setKind] = useState<PropertyKind>(existing?.kind ?? 'owned');
   const [basis, setBasis] = useState(existing?.revenue_basis ?? 'checkin');
   const [payout, setPayout] = useState(existing?.payout_party_id ?? null);
+  const [deposit, setDeposit] = useState(existing?.deposit ? String(existing.deposit) : '');
+  const [notes, setNotes] = useState(existing?.notes ?? '');
   const [other, setOther] = useState('');
   const [mine, setMine] = useState('60');
   const [commission, setCommission] = useState('13');
@@ -55,6 +57,8 @@ export default function PropertyForm() {
       color: tint,
       revenue_basis: basis,
       payout_party_id: payout,
+      deposit: Math.max(0, evalAmount(deposit) ?? 0),
+      notes: notes.trim(),
       archived: existing?.archived ?? false,
       created_at: existing?.created_at ?? now(),
     };
@@ -96,6 +100,13 @@ export default function PropertyForm() {
     <FormScreen title={existing ? t('Réglages du bien', 'Property settings') : t('Nouveau bien', 'New property')} footer={<Button label={t('Enregistrer', 'Save')} onPress={submit} busy={busy} disabled={!valid} />}>
       <Field label={t('Nom', 'Name')} value={name} onChangeText={setName} placeholder="Studio Mermoz" autoFocus={!existing} />
       <Field label={t('Ville ou quartier', 'City or area')} value={location} onChangeText={setLocation} placeholder="Dakar" />
+      <View style={{ gap: space.xs }}>
+        <AmountField label={t('Caution versée au propriétaire', 'Deposit paid to the landlord')} value={deposit} onChangeText={setDeposit} currency={data.profile.currency} />
+        <T variant="small" color={color.inkSoft}>
+          {t('Le total, tous associés confondus. Remboursable, elle n’entre dans aucun calcul : c’est un aide-mémoire.', 'The total, all partners together. Refundable, it is not part of any calculation: it is a reminder.')}
+        </T>
+      </View>
+      <Field label={t('Notes', 'Notes')} value={notes} onChangeText={setNotes} multiline placeholder={t('Ce qui a été convenu, durée du bail, contacts…', 'What was agreed, lease length, contacts…')} style={{ minHeight: 88, textAlignVertical: 'top', paddingTop: 12 }} />
 
       <View>
         <Label>{t('Couleur', 'Colour')}</Label>

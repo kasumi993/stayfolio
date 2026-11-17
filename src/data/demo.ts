@@ -28,8 +28,8 @@ export function sampleData(): Data {
   const villa = { id: newId(), me: newId(), other: newId() };
 
   d.properties.push(
-    { id: studio.id, name: 'Studio Mermoz', location: 'Dakar', kind: 'partnership', color: 'indigo', revenue_basis: 'checkin', payout_party_id: null, archived: false, created_at: created },
-    { id: villa.id, name: 'Villa Ngor', location: 'Dakar', kind: 'managed', color: 'lagoon', revenue_basis: 'checkin', payout_party_id: null, archived: false, created_at: created },
+    { id: studio.id, name: 'Studio Mermoz', location: 'Dakar', kind: 'partnership', color: 'indigo', revenue_basis: 'checkin', payout_party_id: null, deposit: 400000, notes: 'Caution de 400 000 F (200 000 F chacune), en plus des apports. Bail de 2 ans.', archived: false, created_at: created },
+    { id: villa.id, name: 'Villa Ngor', location: 'Dakar', kind: 'managed', color: 'lagoon', revenue_basis: 'checkin', payout_party_id: null, deposit: 0, notes: '', archived: false, created_at: created },
   );
   d.parties.push(
     { id: studio.me, property_id: studio.id, name: 'Khady', is_me: true },

@@ -132,6 +132,8 @@ export function planImport(bytes: Uint8Array, fileName = ''): ImportPlan {
     color: 'indigo',
     revenue_basis: 'checkin',
     payout_party_id: null,
+    deposit: 0,
+    notes: '',
     archived: false,
     created_at: created,
   };

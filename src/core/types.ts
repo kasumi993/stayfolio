@@ -23,6 +23,14 @@ export interface Property {
   revenue_basis: 'checkin' | 'received';
   /** Party who receives platform payouts by default. null = me. */
   payout_party_id: ID | null;
+  /**
+   * Security deposit paid to the landlord, all partners together. Paid on top
+   * of the contributions and refundable: kept out of every calculation, it is
+   * only a reminder.
+   */
+  deposit: number;
+  /** Free notes about the property (terms agreed, who to call…). Never shared. */
+  notes: string;
   archived: boolean;
   created_at: string;
 }

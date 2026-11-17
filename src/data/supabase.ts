@@ -23,7 +23,7 @@ const BUCKET = 'documents';
 const PAGE = 1000;
 
 /** Postgres returns `numeric` columns as strings when large; keep numbers as numbers. */
-const NUMERIC = ['amount', 'fx_rate', 'commission_rate'] as const;
+const NUMERIC = ['amount', 'fx_rate', 'commission_rate', 'deposit'] as const;
 function numbers<T extends Record<string, unknown>>(row: T): T {
   for (const k of NUMERIC) if (typeof row[k] === 'string') (row as Record<string, unknown>)[k] = Number(row[k]);
   return row;

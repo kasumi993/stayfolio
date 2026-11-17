@@ -114,6 +114,27 @@ export default function PropertyScreen() {
         </View>
 
         <View>
+          {property.deposit || property.notes ? (
+            <>
+              <SectionTitle action={<TextLink label={t('Modifier', 'Edit')} onPress={() => router.push({ pathname: '/property-form', params: { id } })} />}>{t('À savoir', 'Good to know')}</SectionTitle>
+              <Block>
+                {property.deposit ? (
+                  <Row
+                    title={t('Caution versée', 'Deposit paid')}
+                    subtitle={t('Remboursable à la fin du bail, hors calculs', 'Refundable at the end of the lease, outside the calculations')}
+                    value={money(property.deposit)}
+                    last={!property.notes}
+                  />
+                ) : null}
+                {property.notes ? (
+                  <View style={{ paddingVertical: space.md }}>
+                    <T color={color.inkSoft}>{property.notes}</T>
+                  </View>
+                ) : null}
+              </Block>
+            </>
+          ) : null}
+
           <SectionTitle action={<TextLink label={t('Modifier', 'Edit')} onPress={() => router.push({ pathname: '/rules', params: { property: id } })} />}>{t('Règles de calcul', 'Calculation rules')}</SectionTitle>
           <Block>
             {rule?.commission_rate ? <Row title={t('Ma commission', 'My commission')} subtitle={t('Prélevée sur chaque réservation, avant partage', 'Taken from each booking, before sharing')} value={formatPercent(rule.commission_rate)} /> : null}
