@@ -131,13 +131,18 @@ export interface Recurring {
   created_at: string;
 }
 
-/** Money moving between two parties of a property (contribution, payout…). */
+/**
+ * Money moving on a property. Between two parties (I pay the owner his due),
+ * or between a party and the property's own cash: `to_party` null is money
+ * put in (a contribution), `from_party` null is money taken out (profit paid
+ * to a partner). At least one side is a party.
+ */
 export interface Transfer {
   id: ID;
   property_id: ID;
   date: ISODate;
-  from_party: ID;
-  to_party: ID;
+  from_party: ID | null;
+  to_party: ID | null;
   /** In the account currency. */
   amount: number;
   note: string;

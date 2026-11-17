@@ -265,6 +265,10 @@ export interface Balance {
   held: number;
   /** entitled − held. Positive: the party is owed money. Negative: they owe. */
   balance: number;
+  /** Money they put into the property: paid to its cash, or handed to me who keeps it. */
+  contributed: number;
+  /** Money they took out of the property: profit paid to them. */
+  drawn: number;
   /**
    * Their share of the result that has not reached them yet, leaving aside
    * what they put in: what a partnership still has to pay them out of the profit.
@@ -297,6 +301,12 @@ export function balances(data: Data, propertyId: ID, inPeriod: Period = () => tr
     const transfersIn = transfers.filter((t) => t.to_party === id).reduce((t, x) => t + x.amount, 0);
     const transfersOut = transfers.filter((t) => t.from_party === id).reduce((t, x) => t + x.amount, 0);
     const held = received - paid + transfersIn - transfersOut;
+    // I keep the property's cash: what a partner hands me is put in, what I hand
+    // a partner is taken out. My own movements only count against the cash itself.
+    const keeper = id === me;
+    const sum = (rows: Transfer[]) => rows.reduce((t, x) => t + x.amount, 0);
+    const contributed = sum(transfers.filter((t) => t.from_party === id && (t.to_party === null || (!keeper && t.to_party === me))));
+    const drawn = sum(transfers.filter((t) => t.to_party === id && (t.from_party === null || (!keeper && t.from_party === me))));
     return {
       party: line.party,
       entitled: line.net,
@@ -306,7 +316,9 @@ export function balances(data: Data, propertyId: ID, inPeriod: Period = () => tr
       transfersOut,
       held,
       balance: line.net - held,
-      undistributed: line.net - received + paid - transfersIn,
+      contributed,
+      drawn,
+      undistributed: line.net - drawn - (keeper ? 0 : received - paid),
     };
   });
 }
@@ -323,6 +335,28 @@ export function dataSpan(data: Data, propertyId: ID | null): { first: Month; las
   if (!months.length) return null;
   months.sort();
   return { first: months[0], last: months[months.length - 1] };
+}
+
+/**
+ * Cash the property holds today, kept by me: what was put in and earned,
+ * minus everything paid (running and set-up costs) and taken out. Income a
+ * partner collected and expenses a partner paid never went through it.
+ */
+export function treasury(data: Data, propertyId: ID): number {
+  const property = data.properties.find((p) => p.id === propertyId);
+  if (!property) return 0;
+  const me = data.parties.find((p) => p.property_id === propertyId && p.is_me)?.id ?? null;
+  const mine = (id: ID | null) => id === null || id === me;
+  let cash = 0;
+  for (const b of data.bookings) if (b.property_id === propertyId && mine(b.received_by ?? property.payout_party_id)) cash += base(b);
+  for (const x of data.expenses) if (x.property_id === propertyId && !x.excluded && x.scope !== 'private' && mine(x.paid_by)) cash -= base(x);
+  for (const t of data.transfers) {
+    if (t.property_id !== propertyId) continue;
+    // Into the cash: a contribution, or money a partner hands me. Out of it: the reverse.
+    if (t.to_party === null || (t.to_party === me && t.from_party !== null)) cash += t.amount;
+    if (t.from_party === null || (t.from_party === me && t.to_party !== null)) cash -= t.amount;
+  }
+  return cash;
 }
 
 export interface Payback {

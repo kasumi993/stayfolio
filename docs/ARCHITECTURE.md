@@ -71,8 +71,10 @@ look at it.
   beginning (set-up aside) with each partner's share, what was already paid
   out, then the initial outlay: set-up costs, what each partner paid in, what
   is left to recover and how long that takes at the recent pace (`payback`).
-  A transfer from a partner is a contribution; a transfer to a partner is
-  profit paid out.
+  Money moves in and out of the property's own cash: a transfer with no
+  `to_party` is a contribution (mine included), one with no `from_party` is
+  profit paid out. `treasury` adds it all up: what was put in and earned,
+  minus what was paid and paid out.
 - **People stay.** A partner or owner who already appears in the accounts
   cannot be deleted (past months and payments would stop adding up). They
   leave by having their shares set to zero from a given month.

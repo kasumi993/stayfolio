@@ -41,7 +41,7 @@ export function exportWorkbook(data: Data): Uint8Array {
 
   const transfers: Cell[][] = [
     ['Property', 'Date', 'From', 'To', `Amount_${cur}`, 'Note'],
-    ...data.transfers.map((t): Cell[] => [name(t.property_id), t.date, who(t.from_party), who(t.to_party), t.amount, t.note]),
+    ...data.transfers.map((t): Cell[] => [name(t.property_id), t.date, t.from_party ? who(t.from_party) : 'Property cash', t.to_party ? who(t.to_party) : 'Property cash', t.amount, t.note]),
   ];
 
   const dashboard: Cell[][] = [['Property', 'Month', `Net_Revenue_${cur}`, `Total_Expenses_${cur}`, 'Net', 'Cumulative_Net', 'Nights', 'Rent_Covered', 'For_Me']];

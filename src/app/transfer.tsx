@@ -1,4 +1,4 @@
-/** Record money that moved between me and a partner or an owner. */
+/** Record money that moved: between me and an owner, or in and out of a partnership's cash. */
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
@@ -9,10 +9,12 @@ import { evalAmount } from '@/core/money';
 import type { Transfer } from '@/core/types';
 import { useData, useStore } from '@/data/store';
 import { usePartiesOf } from '@/features/hooks';
-import { useT } from '@/i18n';
+import { de, useT } from '@/i18n';
 import { Button, Choice, ConfirmButton } from '@/ui/controls';
 import { AmountField, DateFields, Field, Label } from '@/ui/fields';
 import { FormScreen } from '@/ui/layout';
+import { T } from '@/ui/Text';
+import { color, space } from '@/ui/theme';
 
 export default function TransferScreen() {
   const params = useLocalSearchParams<{ property: string; id?: string }>();
@@ -27,8 +29,19 @@ export default function TransferScreen() {
   const [amount, setAmount] = useState(existing ? String(existing.amount) : '');
   const [date, setDate] = useState(existing?.date ?? today());
   const [note, setNote] = useState(existing?.note ?? '');
-  // Encoded as "<other party id>:in" (they paid me) or "<id>:out" (I paid them).
-  const [direction, setDirection] = useState(existing ? (existing.to_party === me?.id ? `${existing.from_party}:in` : `${existing.to_party}:out`) : `${others[0]?.id}:out`);
+  // A partnership moves money in and out of the property's own cash, and I am
+  // a partner like the others. Elsewhere, money moves between me and the other person.
+  const pooled = data.properties.find((p) => p.id === params.property)?.kind === 'partnership';
+  // Encoded as "<party id>:in" (they put money in, or paid me) or "<id>:out" (they were paid).
+  const initial = () => {
+    if (!existing) return pooled ? `${me?.id}:in` : `${others[0]?.id}:out`;
+    if (pooled) {
+      const giver = existing.from_party !== null && (existing.to_party === null || existing.to_party === me?.id);
+      return giver ? `${existing.from_party}:in` : `${existing.to_party}:out`;
+    }
+    return existing.to_party === me?.id ? `${existing.from_party}:in` : `${existing.to_party}:out`;
+  };
+  const [direction, setDirection] = useState(initial);
   const [busy, setBusy] = useState(false);
 
   const value = evalAmount(amount);
@@ -41,8 +54,8 @@ export default function TransferScreen() {
       id: existing?.id ?? newId(),
       property_id: params.property,
       date,
-      from_party: way === 'in' ? other : me.id,
-      to_party: way === 'in' ? me.id : other,
+      from_party: way === 'in' ? other : pooled ? null : me.id,
+      to_party: way === 'in' ? (pooled ? null : me.id) : other,
       amount: value,
       note: note.trim(),
       created_at: existing?.created_at ?? now(),
@@ -58,16 +71,28 @@ export default function TransferScreen() {
   return (
     <FormScreen title={existing ? t('Versement', 'Payment') : t('Noter un versement', 'Record a payment')} footer={<Button label={t('Enregistrer', 'Save')} onPress={submit} busy={busy} disabled={!value || value <= 0} />}>
       <View>
-        <Label>{t('Sens', 'Direction')}</Label>
+        <Label>{pooled ? t('Mouvement', 'Movement') : t('Sens', 'Direction')}</Label>
         <Choice
           value={direction}
           onChange={setDirection}
-          options={others.flatMap((p) => [
-            { value: `${p.id}:out`, label: t(`J’ai versé à ${p.name}`, `I paid ${p.name}`) },
-            { value: `${p.id}:in`, label: t(`${p.name} m’a versé`, `${p.name} paid me`) },
-          ])}
+          options={
+            pooled
+              ? [
+                  ...parties.map((p) => ({ value: `${p.id}:in`, label: p.is_me ? t('Mon apport', 'My contribution') : t(`Apport ${de(p.name)}`, `Paid in by ${p.name}`) })),
+                  ...parties.map((p) => ({ value: `${p.id}:out`, label: p.is_me ? t('Versé à moi', 'Paid out to me') : t(`Versé à ${p.name}`, `Paid out to ${p.name}`) })),
+                ]
+              : others.flatMap((p) => [
+                  { value: `${p.id}:out`, label: t(`J’ai versé à ${p.name}`, `I paid ${p.name}`) },
+                  { value: `${p.id}:in`, label: t(`${p.name} m’a versé`, `${p.name} paid me`) },
+                ])
+          }
         />
       </View>
+      {pooled ? (
+        <T variant="small" color={color.inkSoft} style={{ marginTop: -space.sm }}>
+          {t('Un apport entre dans la caisse du bien. Un versement en sort : c’est du bénéfice partagé.', 'A contribution goes into the property’s cash. A payment comes out of it: profit being shared.')}
+        </T>
+      ) : null}
       <AmountField label={t('Montant', 'Amount')} value={amount} onChangeText={setAmount} currency={data.profile.currency} autoFocus={!existing} />
       <DateFields items={[{ label: t('Date', 'Date'), value: date, onChange: (d) => d && setDate(d) }]} />
       <Field label={t('Note', 'Note')} value={note} onChangeText={setNote} placeholder={t('Reversement de novembre, apport, caution…', 'November payout, contribution, deposit…')} />

@@ -220,7 +220,7 @@ export function planImport(bytes: Uint8Array, fileName = ''): ImportPlan {
         property_id: propertyId,
         date: d ?? lastDate ?? created.slice(0, 10),
         from_party: partner.id,
-        to_party: me.id,
+        to_party: null,
         amount: paidB,
         note: 'Repris du classeur Excel',
         created_at: created,

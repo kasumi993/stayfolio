@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-import { balances, monthStatement, occupancy, payback, propertyStatement, series, statement } from '../src/core/calc';
+import { balances, monthStatement, occupancy, payback, propertyStatement, series, statement, treasury } from '../src/core/calc';
 import { addMonths, dateInMonth, diffDays, excelSerialToISO, monthRange } from '../src/core/dates';
 import { planImport, withSetup } from '../src/core/importWorkbook';
 import { evalAmount, formatMoney, formatNumber } from '../src/core/money';
@@ -125,6 +125,14 @@ describe('calc', () => {
     expect(partner.undistributed).toBe(56000);
     d.transfers.push({ id: 't2', property_id: 'p', date: '2026-03-31', from_party: 'me', to_party: 'ow', amount: 50000, note: '', created_at: '' });
     expect(balances(d, 'p').find((b) => !b.party.is_me)!.undistributed).toBe(6000);
+    // I put 300 000 in myself and take 20 000 of profit out: both go through the property's cash.
+    d.transfers.push({ id: 't3', property_id: 'p', date: '2026-03-01', from_party: 'me', to_party: null, amount: 300000, note: '', created_at: '' });
+    d.transfers.push({ id: 't4', property_id: 'p', date: '2026-03-31', from_party: null, to_party: 'me', amount: 20000, note: '', created_at: '' });
+    const [mine, hers] = ['me', 'ow'].map((id) => balances(d, 'p').find((b) => b.party.id === id)!);
+    expect([mine.contributed, mine.drawn, mine.undistributed]).toEqual([300000, 20000, 64000]);
+    expect([hers.contributed, hers.drawn]).toEqual([250000, 50000]);
+    // Cash: 550 000 put in + 150 000 earned − 10 000 running − 500 000 set-up − 70 000 paid out.
+    expect(treasury(d, 'p')).toBe(120000);
     // A partner's statement lists the set-up costs apart from the running ones.
     const shared = buildSharedStatement(d, 'p', 'ow', ['2026-03'], { showCommission: true });
     expect(shared.setup).toHaveLength(1);
@@ -232,7 +240,8 @@ describe.skipIf(!sample || !existsSync(sample))('import of the real workbook', (
     expect(s.parties.map((l) => Math.round(l.net))).toEqual([-135527, -90351]);
     expect(monthStatement(e, plan.property.id, '2026-04').expenses).toBe(450000);
     const partner = balances(e, plan.property.id).find((b) => !b.party.is_me)!;
-    expect(partner.transfersOut).toBe(1208000);
+    expect(partner.contributed).toBe(1208000);
+    expect(Math.round(treasury(e, plan.property.id))).toBe(1208000 - 1825684);
     expect(Math.round(partner.undistributed)).toBe(-90351);
     expect(series(e, plan.property.id, monthRange('2026-04', '2026-11'))[7].cumulative).toBeCloseTo(-1825683.757, 2);
     const q = payback(e, plan.property.id, '2026-11')!;

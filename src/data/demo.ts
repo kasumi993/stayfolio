@@ -94,7 +94,8 @@ export function sampleData(): Data {
     expense(studio.id, dateInMonth(months[0], 3), 'equipment', 'ElectroMénager Dakar', 'Machine à laver et frigo', 310000, { scope: 'setup' }),
     expense(studio.id, dateInMonth(months[0], 6), 'supplies', 'Marché HLM', 'Draps, serviettes et vaisselle', 95000, { scope: 'setup' }),
   );
-  d.transfers.push({ id: newId(), property_id: studio.id, date: dateInMonth(months[0], 4), from_party: studio.other, to_party: studio.me, amount: 400000, note: 'Apport de départ', created_at: created });
+  d.transfers.push({ id: newId(), property_id: studio.id, date: dateInMonth(months[0], 4), from_party: studio.other, to_party: null, amount: 400000, note: 'Apport de départ', created_at: created });
+  d.transfers.push({ id: newId(), property_id: studio.id, date: dateInMonth(months[0], 1), from_party: studio.me, to_party: null, amount: 600000, note: 'Apport de départ', created_at: created });
   return d;
 }
 
