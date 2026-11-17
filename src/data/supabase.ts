@@ -35,7 +35,7 @@ export function createSupabaseBackend(): Backend {
       storage: localStorage,
       autoRefreshToken: true,
       persistSession: true,
-      // On the web, password-reset links land with the session in the URL.
+      // On the web, sign-in and password-reset links land with the session in the URL.
       detectSessionInUrl: Platform.OS === 'web',
     },
   });
@@ -94,6 +94,10 @@ export function createSupabaseBackend(): Backend {
     onAuthChange(listener) {
       const { data } = db.auth.onAuthStateChange((_event, s) => listener(toSession(s)));
       return () => data.subscription.unsubscribe();
+    },
+    async sendSignInLink(email) {
+      const site = process.env.EXPO_PUBLIC_WEB_URL;
+      check(await db.auth.signInWithOtp({ email, options: site ? { emailRedirectTo: site } : undefined }));
     },
     async signIn(email, password) {
       check(await db.auth.signInWithPassword({ email, password }));

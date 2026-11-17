@@ -18,7 +18,8 @@ export default function Welcome() {
   const wide = useWide();
   const backend = useStore((s) => s.backend);
   const enterDemo = useStore((s) => s.enterDemo);
-  const [mode, setMode] = useState<'in' | 'up'>('in');
+  // 'link': a sign-in link by email, no password. 'in' / 'up': with a password.
+  const [mode, setMode] = useState<'link' | 'in' | 'up'>('link');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -28,7 +29,10 @@ export default function Welcome() {
     setBusy(true);
     setNote(null);
     try {
-      if (mode === 'in') await backend.signIn(email.trim(), password);
+      if (mode === 'link') {
+        await backend.sendSignInLink(email.trim());
+        setNote({ tone: 'positive', text: t(`Lien envoyé à ${email.trim()}. Ouvre-le sur cet appareil : il te connecte directement.`, `Link sent to ${email.trim()}. Open it on this device: it signs you in directly.`) });
+      } else if (mode === 'in') await backend.signIn(email.trim(), password);
       else if (await backend.signUp(email.trim(), password))
         setNote({ tone: 'positive', text: t('Compte créé. Ouvre le lien reçu par e-mail pour le confirmer, puis connecte-toi.', 'Account created. Open the link we emailed you to confirm it, then sign in.') });
     } catch (e) {
@@ -37,7 +41,11 @@ export default function Welcome() {
         tone: 'negative',
         text: /invalid login/i.test(raw)
           ? t('E-mail ou mot de passe incorrect.', 'Wrong email or password.')
-          : /not confirmed/i.test(raw)
+          : /not authorized/i.test(raw)
+            ? t('L’envoi d’e-mails n’est pas encore ouvert à cette adresse. Demande à la personne qui t’a invité·e.', 'Email delivery is not open to this address yet. Ask the person who invited you.')
+            : /rate limit|only request this/i.test(raw)
+              ? t('Trop de demandes pour l’instant. Réessaie dans quelques minutes, ou connecte-toi avec ton mot de passe.', 'Too many requests for now. Try again in a few minutes, or sign in with your password.')
+              : /not confirmed/i.test(raw)
             ? t('Confirme d’abord ton adresse avec le lien reçu par e-mail.', 'Confirm your address first with the link we emailed you.')
             : raw || t('Connexion impossible.', 'Could not sign in.'),
       });
@@ -67,13 +75,30 @@ export default function Welcome() {
             {cloudConfigured ? (
               <>
                 <Field label={t('E-mail', 'Email')} value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" inputMode="email" />
-                <Field label={t('Mot de passe', 'Password')} value={password} onChangeText={setPassword} secureTextEntry autoComplete={mode === 'in' ? 'current-password' : 'new-password'} onSubmitEditing={submit} />
+                {mode === 'link' ? null : <Field label={t('Mot de passe', 'Password')} value={password} onChangeText={setPassword} secureTextEntry autoComplete={mode === 'in' ? 'current-password' : 'new-password'} onSubmitEditing={submit} />}
                 {note ? <Notice text={note.text} tone={note.tone} icon={note.tone === 'positive' ? 'check' : 'alert'} /> : null}
-                <Button label={mode === 'in' ? t('Se connecter', 'Sign in') : t('Créer mon compte', 'Create my account')} onPress={submit} busy={busy} disabled={!email.trim() || password.length < 8} />
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <TextLink label={mode === 'in' ? t('Créer un compte', 'Create an account') : t('J’ai déjà un compte', 'I already have an account')} onPress={() => setMode(mode === 'in' ? 'up' : 'in')} />
-                  {mode === 'in' ? <TextLink label={t('Mot de passe oublié', 'Forgot password')} onPress={forgot} /> : null}
-                </View>
+                <Button
+                  label={mode === 'link' ? t('Recevoir mon lien de connexion', 'Email me a sign-in link') : mode === 'in' ? t('Se connecter', 'Sign in') : t('Créer mon compte', 'Create my account')}
+                  onPress={submit}
+                  busy={busy}
+                  disabled={!/^\S+@\S+\.\S+$/.test(email.trim()) || (mode !== 'link' && password.length < 8)}
+                />
+                {mode === 'link' ? (
+                  <View style={{ gap: space.sm }}>
+                    <T variant="small" color={color.inkSoft}>
+                      {t('Pas de mot de passe : tu reçois un lien par e-mail, il suffit de l’ouvrir. Première fois ? Le compte se crée tout seul.', 'No password: you get a link by email and just open it. First time? The account creates itself.')}
+                    </T>
+                    <TextLink label={t('Utiliser un mot de passe', 'Use a password instead')} onPress={() => { setNote(null); setMode('in'); }} />
+                  </View>
+                ) : (
+                  <View style={{ gap: space.md }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <TextLink label={mode === 'in' ? t('Créer un compte', 'Create an account') : t('J’ai déjà un compte', 'I already have an account')} onPress={() => setMode(mode === 'in' ? 'up' : 'in')} />
+                      {mode === 'in' ? <TextLink label={t('Mot de passe oublié', 'Forgot password')} onPress={forgot} /> : null}
+                    </View>
+                    <TextLink label={t('Recevoir un lien par e-mail à la place', 'Get a link by email instead')} onPress={() => { setNote(null); setMode('link'); }} />
+                  </View>
+                )}
                 {mode === 'up' ? (
                   <T variant="small" color={color.inkSoft}>
                     {t('8 caractères minimum.', 'At least 8 characters.')}

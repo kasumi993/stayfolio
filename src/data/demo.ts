@@ -111,6 +111,7 @@ export function createDemoBackend(): Backend {
     demo: true,
     getSession: async () => session,
     onAuthChange: () => () => {},
+    sendSignInLink: async () => {},
     signIn: async () => {},
     signUp: async () => false,
     sendPasswordReset: async () => {},

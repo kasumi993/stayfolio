@@ -45,6 +45,8 @@ export interface Backend {
 
   getSession(): Promise<Session | null>;
   onAuthChange(listener: (session: Session | null) => void): () => void;
+  /** Emails a link that signs the person in when opened. Creates the account on first use. */
+  sendSignInLink(email: string): Promise<void>;
   signIn(email: string, password: string): Promise<void>;
   /** Resolves to true when the user must confirm their email before signing in. */
   signUp(email: string, password: string): Promise<boolean>;
