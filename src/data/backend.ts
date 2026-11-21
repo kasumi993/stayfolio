@@ -47,6 +47,12 @@ export interface Backend {
   onAuthChange(listener: (session: Session | null) => void): () => void;
   /** Emails a link that signs the person in when opened. Creates the account on first use. */
   sendSignInLink(email: string): Promise<void>;
+  /**
+   * Signs in with the code printed in the same email. Needed by the app
+   * installed on an iPhone home screen: the link opens Safari, which does not
+   * share its session with the installed app.
+   */
+  verifySignInCode(email: string, code: string): Promise<void>;
   signIn(email: string, password: string): Promise<void>;
   /** Resolves to true when the user must confirm their email before signing in. */
   signUp(email: string, password: string): Promise<boolean>;

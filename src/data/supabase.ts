@@ -99,6 +99,9 @@ export function createSupabaseBackend(): Backend {
       const site = process.env.EXPO_PUBLIC_WEB_URL;
       check(await db.auth.signInWithOtp({ email, options: site ? { emailRedirectTo: site } : undefined }));
     },
+    async verifySignInCode(email, code) {
+      check(await db.auth.verifyOtp({ email, token: code, type: 'email' }));
+    },
     async signIn(email, password) {
       check(await db.auth.signInWithPassword({ email, password }));
     },

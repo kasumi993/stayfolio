@@ -76,3 +76,14 @@ dashboard SQL editor or the Supabase CLI (`supabase db push`), and commit the fi
 - `npm run typecheck && npm run lint && npm test` (also run on every push).
 - Supabase dashboard → **Advisors** after any schema change.
 - Supabase dashboard → **Reports** for database size and storage use.
+
+## Sign-in emails must carry the code
+
+The app installed on an iPhone home screen does not share its session with
+Safari, so opening the sign-in link there signs Safari in, not the app. The
+app therefore also accepts the code from the same email. Supabase only puts
+the code in the email if the template asks for it: in Supabase,
+Authentication → Emails, templates "Magic link" and "Confirm signup", keep
+the link and add a line with `{{ .Token }}`, for example:
+
+    <p>Ou saisis ce code dans l'app : <strong>{{ .Token }}</strong></p>

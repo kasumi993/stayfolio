@@ -23,6 +23,9 @@ export default function Welcome() {
   const [mode, setMode] = useState<'link' | 'in' | 'up'>('link');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Once the email is sent: the code it carries can be typed here instead of opening the link.
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ text: string; tone: 'negative' | 'positive' } | null>(null);
 
@@ -32,7 +35,9 @@ export default function Welcome() {
     try {
       if (mode === 'link') {
         await backend.sendSignInLink(email.trim());
-        setNote({ tone: 'positive', text: t(`Lien envoyé à ${email.trim()}. Ouvre-le sur cet appareil : il te connecte directement.`, `Link sent to ${email.trim()}. Open it on this device: it signs you in directly.`) });
+        setSentTo(email.trim());
+        setCode('');
+        setNote({ tone: 'positive', text: t(`E-mail envoyé à ${email.trim()}. Saisis le code qu’il contient ci-dessous, ou ouvre le lien sur cet appareil.`, `Email sent to ${email.trim()}. Type the code it contains below, or open the link on this device.`) });
       } else if (mode === 'in') await backend.signIn(email.trim(), password);
       else if (await backend.signUp(email.trim(), password))
         setNote({ tone: 'positive', text: t('Compte créé. Ouvre le lien reçu par e-mail pour le confirmer, puis connecte-toi.', 'Account created. Open the link we emailed you to confirm it, then sign in.') });
@@ -42,6 +47,8 @@ export default function Welcome() {
         tone: 'negative',
         text: /invalid login/i.test(raw)
           ? t('E-mail ou mot de passe incorrect.', 'Wrong email or password.')
+          : /expired|invalid.*(otp|token)|token.*invalid/i.test(raw)
+            ? t('Ce code ne fonctionne pas ou a expiré. Vérifie-le, ou demande un nouvel e-mail.', 'This code does not work or has expired. Check it, or ask for a new email.')
           : /not authorized/i.test(raw)
             ? t('L’envoi d’e-mails n’est pas encore ouvert à cette adresse. Demande à la personne qui t’a invité·e.', 'Email delivery is not open to this address yet. Ask the person who invited you.')
             : /rate limit|only request this/i.test(raw)
@@ -49,6 +56,25 @@ export default function Welcome() {
               : /not confirmed/i.test(raw)
             ? t('Confirme d’abord ton adresse avec le lien reçu par e-mail.', 'Confirm your address first with the link we emailed you.')
             : raw || t('Connexion impossible.', 'Could not sign in.'),
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verify() {
+    if (!sentTo) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      await backend.verifySignInCode(sentTo, code.replace(/\s/g, ''));
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : '';
+      setNote({
+        tone: 'negative',
+        text: /expired|invalid|token/i.test(raw)
+          ? t('Ce code ne fonctionne pas ou a expiré. Vérifie-le, ou demande un nouvel e-mail.', 'This code does not work or has expired. Check it, or ask for a new email.')
+          : raw || t('Connexion impossible.', 'Could not sign in.'),
       });
     } finally {
       setBusy(false);
@@ -79,18 +105,42 @@ export default function Welcome() {
                 <Field label={t('E-mail', 'Email')} value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" inputMode="email" />
                 {mode === 'link' ? null : <Field label={t('Mot de passe', 'Password')} value={password} onChangeText={setPassword} secureTextEntry autoComplete={mode === 'in' ? 'current-password' : 'new-password'} onSubmitEditing={submit} />}
                 {note ? <Notice text={note.text} tone={note.tone} icon={note.tone === 'positive' ? 'check' : 'alert'} /> : null}
-                <Button
+                {mode === 'link' && sentTo ? (
+                  <>
+                    <Field
+                      label={t('Code reçu par e-mail', 'Code from the email')}
+                      value={code}
+                      onChangeText={(v) => setCode(v.replace(/[^0-9]/g, '').slice(0, 10))}
+                      keyboardType="number-pad"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      textContentType="oneTimeCode"
+                      placeholder="123456"
+                      onSubmitEditing={verify}
+                      style={{ fontSize: 22, letterSpacing: 6 }}
+                    />
+                    <Button label={t('Me connecter', 'Sign me in')} onPress={verify} busy={busy} disabled={code.length < 6} />
+                  </>
+                ) : null}
+                {mode === 'link' && sentTo ? null : <Button
                   label={mode === 'link' ? t('Recevoir mon lien de connexion', 'Email me a sign-in link') : mode === 'in' ? t('Se connecter', 'Sign in') : t('Créer mon compte', 'Create my account')}
                   onPress={submit}
                   busy={busy}
                   disabled={!/^\S+@\S+\.\S+$/.test(email.trim()) || (mode !== 'link' && password.length < 8)}
-                />
-                {mode === 'link' ? (
+                />}
+                {mode === 'link' && sentTo ? (
                   <View style={{ gap: space.sm }}>
                     <T variant="small" color={color.inkSoft}>
-                      {t('Pas de mot de passe : tu reçois un lien par e-mail, il suffit de l’ouvrir. Première fois ? Le compte se crée tout seul.', 'No password: you get a link by email and just open it. First time? The account creates itself.')}
+                      {t('Le code arrive en quelques secondes. Pense à regarder les indésirables.', 'The code arrives within seconds. Check your spam folder too.')}
                     </T>
-                    <TextLink label={t('Utiliser un mot de passe', 'Use a password instead')} onPress={() => { setNote(null); setMode('in'); }} />
+                    <TextLink label={t('Changer d’adresse ou renvoyer l’e-mail', 'Change address or resend the email')} onPress={() => { setSentTo(null); setNote(null); }} />
+                  </View>
+                ) : mode === 'link' ? (
+                  <View style={{ gap: space.sm }}>
+                    <T variant="small" color={color.inkSoft}>
+                      {t('Pas de mot de passe : tu reçois un e-mail avec un code et un lien. Première fois ? Le compte se crée tout seul.', 'No password: you get an email with a code and a link. First time? The account creates itself.')}
+                    </T>
+                    <TextLink label={t('Utiliser un mot de passe', 'Use a password instead')} onPress={() => { setNote(null); setSentTo(null); setMode('in'); }} />
                   </View>
                 ) : (
                   <View style={{ gap: space.md }}>
