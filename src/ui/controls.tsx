@@ -12,7 +12,7 @@ type Tone = 'primary' | 'dark' | 'quiet' | 'danger';
 const toneOf = (tone: Tone): { bg: string; fg: string; border?: string } =>
   ({
     primary: { bg: color.accent, fg: color.accentInk },
-    dark: { bg: color.ink, fg: color.white },
+    dark: { bg: color.ink, fg: color.paper },
     quiet: { bg: 'transparent', fg: color.ink, border: color.lineStrong },
     danger: { bg: 'transparent', fg: color.negative, border: color.negativeSoft },
   })[tone];

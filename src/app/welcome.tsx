@@ -8,9 +8,10 @@ import { useT } from '@/i18n';
 import { Button, Notice, TextLink } from '@/ui/controls';
 import { Field } from '@/ui/fields';
 import { useWide } from '@/ui/layout';
-import { Logo } from '@/ui/Logo';
+import { Mark } from '@/ui/Logo';
+import Svg, { Polygon } from 'react-native-svg';
 import { T } from '@/ui/Text';
-import { color, radius, space } from '@/ui/theme';
+import { brand, color, radius, space } from '@/ui/theme';
 
 export default function Welcome() {
   const t = useT();
@@ -62,16 +63,17 @@ export default function Welcome() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: wide ? color.sunken : color.paper }}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: wide ? 'center' : 'flex-start', alignItems: 'center', paddingTop: insets.top + (wide ? space.xl : 56), paddingBottom: insets.bottom + space.xxl, paddingHorizontal: 20 }}>
-        <View style={{ width: '100%', maxWidth: 420, backgroundColor: color.paper, borderRadius: radius.xl, padding: wide ? 36 : 0, borderWidth: wide ? 1 : 0, borderColor: color.line }}>
-          <Logo size={30} />
-          <T variant="title" style={{ marginTop: space.xl }}>
-            {t('Les comptes de mes locations', 'My rental books')}
-          </T>
-          <T color={color.inkSoft} style={{ marginTop: space.xs }}>
-            {t('Revenus, dépenses, partages et reçus, au même endroit.', 'Income, expenses, splits and receipts, in one place.')}
-          </T>
-          <View style={{ gap: space.lg, marginTop: space.xl }}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ flexGrow: 1, justifyContent: wide ? 'center' : 'flex-start', alignItems: 'center', paddingTop: wide ? insets.top + space.xl : 0, paddingBottom: insets.bottom + space.xxl, paddingHorizontal: wide ? 20 : 0 }}>
+        <View style={{ width: '100%', maxWidth: wide ? 920 : undefined, flexDirection: wide ? 'row' : 'column', backgroundColor: color.paper, borderRadius: wide ? radius.xl : 0, borderWidth: wide ? 1 : 0, borderColor: color.line, overflow: 'hidden' }}>
+          <BrandPanel wide={wide} top={insets.top} />
+          <View style={{ flex: wide ? 1 : undefined, padding: wide ? 44 : 20, paddingTop: wide ? 44 : space.xl, justifyContent: 'center' }}>
+            <T variant="title">{t('Bienvenue', 'Welcome')}</T>
+            <T color={color.inkSoft} style={{ marginTop: space.xs, marginBottom: space.xl }}>
+              {cloudConfigured ? t('Connecte-toi avec ton adresse e-mail.', 'Sign in with your email address.') : t('Découvre l’app avec des données d’exemple.', 'Try the app with sample data.')}
+            </T>
+          <View style={{ gap: space.lg }}>
             {cloudConfigured ? (
               <>
                 <Field label={t('E-mail', 'Email')} value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" inputMode="email" />
@@ -110,8 +112,43 @@ export default function Welcome() {
             )}
             <Button tone="quiet" label={t('Explorer la démo', 'Explore the demo')} onPress={() => void enterDemo()} />
           </View>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+/**
+ * The brand side of the sign-in page, on the ink of the logo: the mark, what
+ * the app is for, and the mark's bars drawn large as a quiet backdrop.
+ */
+function BrandPanel({ wide, top }: { wide: boolean; top: number }) {
+  const t = useT();
+  const onInk = 'rgba(255,255,255,0.68)';
+  return (
+    <View style={{ width: wide ? 400 : undefined, backgroundColor: brand.ink, padding: wide ? 40 : 20, paddingTop: wide ? 40 : top + 28, paddingBottom: wide ? 40 : 28, overflow: 'hidden', minHeight: wide ? 520 : undefined }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <Mark size={wide ? 40 : 34} />
+        <T variant="heading" color="#FFFFFF" style={{ fontSize: wide ? 22 : 20 }}>
+          Stayfolio
+        </T>
+      </View>
+      <T variant="hero" color="#FFFFFF" style={{ marginTop: wide ? 56 : 24, fontSize: wide ? 34 : 26, lineHeight: wide ? 40 : 32, maxWidth: 320 }}>
+        {t('Les comptes de mes locations', 'My rental books')}
+      </T>
+      <T color={onInk} style={{ marginTop: space.md, maxWidth: 300 }}>
+        {t('Revenus, dépenses, partages entre associés et reçus, au même endroit.', 'Income, expenses, partner splits and receipts, in one place.')}
+      </T>
+      {wide ? (
+        <View pointerEvents="none" style={{ position: 'absolute', right: -40, bottom: -36, opacity: 0.9 }}>
+          <Svg width={300} height={300} viewBox="0 0 120 120">
+            {['26,54.6 40,42.8 40,96 26,96', '44,39.5 58,27.7 58,96 44,96', '62,27.7 76,39.5 76,96 62,96', '80,42.8 94,54.6 94,96 80,96'].map((points, i) => (
+              <Polygon key={i} points={points} fill={brand.bars[i]} opacity={0.3} />
+            ))}
+          </Svg>
+        </View>
+      ) : null}
+    </View>
   );
 }

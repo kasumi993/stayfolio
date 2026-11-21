@@ -131,11 +131,19 @@ Figures are shown as pictures wherever that reads faster (`charts.tsx`):
 - `Trend`: the running result over the year.
 - `Breakdown`: where the money goes, or comes from.
 
-Two themes share the same token names: **pastel** (the default) and
-**indigo**. The choice is made in Settings and remembered on the device.
+Three themes share the same token names: **pastel** (the default, light),
+**dark** (the same pastels on the logo's ink) and **indigo**. The choice is made in Settings and remembered on the device.
 Switching swaps the values of the shared `color` object and re-creates the
 screens; components read colours while rendering, never in a top-level
 constant. Adding a theme is one more entry in `themes`.
+
+## The mark
+
+`src/ui/Logo.tsx` draws the mark: four chart bars whose tops, cut at an angle,
+draw a roof, on the brand ink (`brand` in `theme.ts`, the same in every theme).
+The app icons are generated from the same drawing by a small script
+(`sharp`): full-bleed squares for iOS, Android and the maskable web icon,
+a rounded tile for desktop shortcuts and the favicon.
 
 ## Phone and computer layouts (`src/ui/layout.tsx`)
 

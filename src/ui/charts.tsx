@@ -23,7 +23,7 @@ export function Ring({ value, size = 64, stroke = 8, tint = color.ring, children
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke={color.white} strokeOpacity={0.9} strokeWidth={stroke} fill="none" />
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={color.whiteSoft} strokeWidth={stroke} fill="none" />
         {shown > 0 ? <Circle cx={size / 2} cy={size / 2} r={r} stroke={tint} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={`${length * shown} ${length}`} fill="none" /> : null}
       </Svg>
       {children}

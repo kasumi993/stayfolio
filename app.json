@@ -45,7 +45,7 @@
     "android": {
       "package": "com.kasumi.stayfolio",
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
+        "backgroundColor": "#1C2430",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false

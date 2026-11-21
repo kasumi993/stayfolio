@@ -5,8 +5,9 @@
  * The look: a white page, thin lines, plenty of air, and soft pastel tints
  * that carry meaning (green = income, rose = expenses, blue = occupancy).
  *
- * Two themes share the same token names:
+ * Three themes share the same token names:
  *   - `pastel` (default): sage, sky, blush and butter on white;
+ *   - `dark`: the same pastels on the ink of the logo, for the evening;
  *   - `indigo`: the same layout with stronger, deeper colours.
  *
  * How switching works: `color` is one shared object. `applyTheme` swaps its
@@ -58,6 +59,8 @@ interface Theme {
     /** Dimmed backdrop behind dialogs. */
     veil: string;
   };
+  /** Light text on dark backgrounds: drives the status bar and the page behind the app. */
+  scheme: 'light' | 'dark';
   /** A soft tint and a stronger shade per property colour. `all` = every property. */
   pigment: Record<string, { tint: string; strong: string }>;
   platform: Record<string, string>;
@@ -96,6 +99,7 @@ const themes = {
       tintNight: '#FDF4D8',
       veil: 'rgba(34,37,42,0.32)',
     },
+    scheme: 'light',
     pigment: {
       indigo: { tint: '#E6F0FB', strong: '#7FB2EA' },
       bissap: { tint: '#FCECEF', strong: '#EE9BAD' },
@@ -138,6 +142,7 @@ const themes = {
       tintNight: '#F6E6EC',
       veil: 'rgba(23,20,58,0.4)',
     },
+    scheme: 'light',
     pigment: {
       indigo: { tint: '#E9E7F7', strong: '#2B2580' },
       bissap: { tint: '#F6E6EC', strong: '#8C1D4F' },
@@ -148,7 +153,53 @@ const themes = {
     },
     platform: { airbnb: '#FF6B8A', booking: '#6C9BFF', direct: '#FFB01F', other: '#B9B6D3' },
   },
+  dark: {
+    color: {
+      ink: '#EDEFF2',
+      inkSoft: '#A5ACB7',
+      inkFaint: '#6D7581',
+      paper: '#141920',
+      surface: '#1C222B',
+      sunken: '#181D25',
+      line: '#262D37',
+      lineStrong: '#36404C',
+      accent: '#8ED0AC',
+      accentInk: '#0F2A1C',
+      positive: '#72D3A2',
+      positiveSoft: '#1B3127',
+      negative: '#F28C9F',
+      negativeSoft: '#3A222A',
+      noticeSoft: '#352F1C',
+      white: '#FFFFFF',
+      whiteSoft: 'rgba(255,255,255,0.14)',
+      selected: '#1F3A2C',
+      onSelected: '#C4EDD6',
+      selectedBorder: '#4F9C75',
+      chartIncome: '#8ED0AC',
+      chartExpense: '#F2A9B8',
+      chartLine: '#7FB2EA',
+      ring: '#7FB2EA',
+      tintIncome: '#1B2D24',
+      tintExpense: '#33232A',
+      tintOccupancy: '#1C2A3A',
+      tintNight: '#322C1B',
+      veil: 'rgba(0,0,0,0.6)',
+    },
+    scheme: 'dark',
+    pigment: {
+      indigo: { tint: '#1C2A3A', strong: '#7FB2EA' },
+      bissap: { tint: '#33232A', strong: '#EE9BAD' },
+      lagoon: { tint: '#1A2E29', strong: '#6CC5A9' },
+      baobab: { tint: '#322C1B', strong: '#E6C45C' },
+      laterite: { tint: '#33281F', strong: '#DDAE84' },
+      all: { tint: '#1E242D', strong: '#8A929D' },
+    },
+    platform: { airbnb: '#F2A9B8', booking: '#8DB9EE', direct: '#EBCB6B', other: '#5D6570' },
+  },
 } satisfies Record<string, Theme>;
+
+/** The logo's own colours: the same in every theme. */
+export const brand = { ink: '#1C2430', bars: ['#8ED0AC', '#7FB2EA', '#F2A9B8', '#E6C45C'] } as const;
 
 export type ThemeName = keyof typeof themes;
 export const themeNames = Object.keys(themes) as ThemeName[];
@@ -164,7 +215,15 @@ export const color: Theme['color'] = { ...active.color };
 export function applyTheme(name: ThemeName): void {
   active = themes[name];
   Object.assign(color, active.color);
+  // On the web, the page behind the app shows while scrolling past the edges.
+  if (typeof document !== 'undefined') {
+    document.body.style.background = active.color.paper;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', active.color.paper);
+  }
 }
+
+/** Whether the active theme is dark. */
+export const isDark = (): boolean => active.scheme === 'dark';
 
 /** Keys a property can pick as its colour. Stored on the property, theme-independent. */
 export const pigmentKeys = ['indigo', 'bissap', 'lagoon', 'baobab', 'laterite'];

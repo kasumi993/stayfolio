@@ -59,12 +59,13 @@ export default function SettingsScreen() {
       </View>
 
       <View>
-        <Label>{t('Couleurs', 'Colours')}</Label>
+        <Label>{t('Apparence', 'Appearance')}</Label>
         <Choice
           value={theme}
           onChange={setTheme}
           options={[
-            { value: 'pastel' as const, label: 'Pastel', dot: '#8ED0AC' },
+            { value: 'pastel' as const, label: t('Clair', 'Light'), dot: '#8ED0AC' },
+            { value: 'dark' as const, label: t('Sombre', 'Dark'), dot: '#4A5568' },
             { value: 'indigo' as const, label: 'Indigo', dot: '#2B2580' },
           ]}
         />

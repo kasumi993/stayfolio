@@ -12,7 +12,7 @@ import '@/platform/install';
 import { useT } from '@/i18n';
 import { useWide } from '@/ui/layout';
 import { T } from '@/ui/Text';
-import { color, maxWidth, radius, space } from '@/ui/theme';
+import { color, isDark, maxWidth, radius, space } from '@/ui/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -61,7 +61,7 @@ function Screens() {
     : ({ presentation: 'modal' } as const);
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark() ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.paper } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="welcome" options={{ animation: 'none' }} />
@@ -101,7 +101,7 @@ function ErrorBanner() {
         <T variant="label" color={color.white}>
           {t('Cela n’a pas fonctionné. Vérifie ta connexion et réessaie.', 'That did not work. Check your connection and try again.')}
         </T>
-        <T variant="small" color={color.whiteSoft} numberOfLines={2}>
+        <T variant="small" color={color.white} numberOfLines={2} style={{ opacity: 0.85 }}>
           {error}
         </T>
       </Pressable>
