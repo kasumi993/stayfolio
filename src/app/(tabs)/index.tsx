@@ -2,8 +2,8 @@
  * Month: the screen opened every day. The result of the month first, then the
  * key figures, the trend, the split between parties, and every entry.
  */
-import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo } from 'react';
 import { View } from 'react-native';
 
 import { type Statement, base, monthStatement, nightsOf, occupancy, ruleFor, series } from '@/core/calc';
@@ -23,6 +23,7 @@ import { T } from '@/ui/Text';
 import { color, pigmentDot, platformColor, seriesColors, space } from '@/ui/theme';
 
 export default function MonthScreen() {
+  useQuickAdd();
   const t = useT();
   const locale = useLocale();
   const money = useMoney();
@@ -315,4 +316,17 @@ function insightText(ins: Insight, property: Property | undefined, showName: boo
     case 'overlap':
       return where + t(`deux réservations se chevauchent autour du ${dayLabel(ins.check_in, locale)}.`, `two bookings overlap around ${dayLabel(ins.check_in, locale)}.`);
   }
+}
+
+/**
+ * `/?add=expense` or `/?add=booking` opens the matching form: the shortcuts
+ * offered by a long press on the installed app's icon land here.
+ */
+function useQuickAdd() {
+  const { add } = useLocalSearchParams<{ add?: string }>();
+  useEffect(() => {
+    if (add !== 'expense' && add !== 'booking') return;
+    router.setParams({ add: undefined });
+    router.push({ pathname: '/entry', params: { type: add } });
+  }, [add]);
 }

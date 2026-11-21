@@ -152,6 +152,22 @@ One code base, two layouts, chosen by the width of the window (`useWide`,
 Because the choice depends only on width, narrowing the browser window, or
 using the browser's device simulator, shows the phone layout on the web.
 
+## Installing the web version (PWA)
+
+`public/manifest.json` and `public/sw.js` make the site installable. The
+service worker keeps the app shell and the built files so the app opens
+offline, and never caches data. `src/platform/install.ts` catches Chrome's
+`beforeinstallprompt` (one-tap install on Android and computers) and detects
+iPhone and iPad, where Safari has no such event and the banner explains
+Share → Add to Home Screen. The banner (`features/InstallBanner.tsx`) sits
+above the tab bar on a phone and in the sidebar on a computer; "Not now"
+hides it for 30 days, and Settings keep the option. A long press on the
+installed icon (Android, computers) offers shortcuts that open `/?add=expense`,
+`/?add=booking` or `/reports`.
+
+Home screen widgets are not possible for a web app on iPhone or Android:
+they need the native app (WidgetKit on iOS), see `docs/RELEASE.md`.
+
 ## Adding things
 
 - **A screen**: add a file in `src/app`, and a `<Stack.Screen>` line in

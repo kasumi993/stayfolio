@@ -11,6 +11,7 @@ import { useT } from '@/i18n';
 import { saveFile } from '@/platform/saveFile';
 import { Button, Choice, ConfirmButton, Notice } from '@/ui/controls';
 import { Field, Label } from '@/ui/fields';
+import { InstallSetting } from '@/features/InstallBanner';
 import { FormScreen } from '@/ui/layout';
 import { T } from '@/ui/Text';
 import { color } from '@/ui/theme';
@@ -68,6 +69,8 @@ export default function SettingsScreen() {
           ]}
         />
       </View>
+
+      <InstallSetting />
 
       <View>
         <T variant="heading">{t('Devises', 'Currencies')}</T>

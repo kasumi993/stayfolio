@@ -9,6 +9,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useStore } from '@/data/store';
+import { InstallBanner } from '@/features/InstallBanner';
 import { PropertyMenu } from '@/features/PageHeader';
 import { setPendingFile } from '@/features/pendingFile';
 import { useT } from '@/i18n';
@@ -120,6 +121,9 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
         ) : (
           <View style={{ flex: 1 }} />
         )}
+        <View style={{ marginTop: space.md }}>
+          <InstallBanner compact />
+        </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: space.md }}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('Réglages', 'Settings')} onPress={() => router.push('/settings')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, height: 40, paddingHorizontal: 10, borderRadius: radius.md, backgroundColor: pressed ? color.line : 'transparent', flex: 1 })}>
             <Icon name="gear" size={19} color={color.inkSoft} />
@@ -148,6 +152,9 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
 
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+      <View pointerEvents="box-none" style={{ width: '100%', maxWidth, paddingHorizontal: space.md, paddingBottom: space.sm }}>
+        <InstallBanner />
+      </View>
       <View style={{ width: '100%', maxWidth, flexDirection: 'row', alignItems: 'center', backgroundColor: color.paper, borderTopWidth: 1, borderColor: color.line, paddingTop: 6, paddingBottom: Math.max(insets.bottom, 8), paddingHorizontal: space.sm }}>
         {TABS.slice(0, 2).map(tab)}
         <View style={{ width: 72, alignItems: 'center' }}>

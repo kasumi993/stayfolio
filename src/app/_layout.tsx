@@ -8,6 +8,7 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useStore } from '@/data/store';
+import '@/platform/install';
 import { useT } from '@/i18n';
 import { useWide } from '@/ui/layout';
 import { T } from '@/ui/Text';
