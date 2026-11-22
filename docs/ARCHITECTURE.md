@@ -161,11 +161,14 @@ level, a probable duplicate, overlapping bookings) is done with plain rules in
 
 ## Design system (`src/ui`)
 
-All colours, fonts and spacing come from `theme.ts`. The page is white; colour
-is kept for meaning: soft tints mark the four tiles (income, expenses,
-occupancy, income per night), green and red mark gains and losses, and each
-property has its own pigment. One typeface, Plus Jakarta Sans, in three
-weights. Corners are small (8 to 20) and most lists have no frame, only
+All colours, fonts and spacing come from `theme.ts`. Design "K" (22 Nov
+2026): slate ink on warm sand, white cards, fine sand rules; colour is kept
+for meaning: muted tints mark the four tiles (income, expenses, occupancy,
+income per night), green and red mark gains and losses, and each property has
+its own pigment. Titles use Marcellus (engraved roman letters); text and every
+amount use Hanken Grotesk (`font.figure` for big amounts: Marcellus' round
+zero reads as an O). The dark theme is the same design at night: slate page,
+sand text. Corners are small (8 to 20) and most lists have no frame, only
 dividers.
 
 Figures are shown as pictures wherever that reads faster (`charts.tsx`):
