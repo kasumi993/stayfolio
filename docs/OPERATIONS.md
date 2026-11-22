@@ -77,6 +77,49 @@ dashboard SQL editor or the Supabase CLI (`supabase db push`), and commit the fi
 - Supabase dashboard → **Advisors** after any schema change.
 - Supabase dashboard → **Reports** for database size and storage use.
 
+## The Supabase project
+
+Project `qizxtnojgxhkqasavghb` (Stayfolio, eu-west-1), moved there on
+22 November 2026 from `fyxidngsxltwluzzudrt`, which held no data. Its URL and
+publishable key are in `.env` (public values). Edge functions:
+
+| Function | Who calls it | Sign-in |
+| --- | --- | --- |
+| `ai` | the app (receipts, questions) | signed-in user |
+| `delete-account` | Settings, "Supprimer mon compte" | signed-in user |
+| `member-files` | a member link (invoices) | none: the link token, checked inside |
+| `member-invite` | member form, "Envoyer par e-mail" | signed-in owner |
+| `monthly-report` | the database schedule, or "Envoyer le récap…" | none: a one-time row of `report_requests` |
+
+Deploying a function: `node scripts/bundle-functions.mjs` (copies the shared
+code and `src/core` into the functions), then deploy each folder, or one file
+bundled with `npx esbuild <fn>/index.ts --bundle --format=esm --platform=neutral
+--external:'jsr:*' --charset=ascii`.
+
+## Emails
+
+Two kinds, both going out through Brevo (account "Miracute", sender
+hello@miracute.com shown as "Stayfolio"; domain miracute.com authenticated;
+free plan: 300 emails a day, with Brevo's small "Sent with Brevo" mark).
+
+1. **Sign-in emails** (link and code, new account, password, address change):
+   sent by Supabase Auth through the Brevo SMTP set in the project
+   (Authentication → Emails → SMTP). Their content is Supabase's templates:
+   paste the files of `supabase/templates/` (see its README).
+2. **App emails**: the member link and the monthly recap, sent by the edge
+   functions through Brevo's API with Brevo templates:
+   - "Stayfolio · Invitation d'un membre" (id 9), `emails/brevo/invite.html`
+   - "Stayfolio · Rapport mensuel" (id 10), `emails/brevo/report.html`
+   They need the function secret `BREVO_API_KEY` (a Brevo **API** key,
+   different from the SMTP key) and both templates **active** in Brevo.
+   The source HTML lives in the repo; after changing it, update the Brevo
+   template with the same HTML.
+
+The recap runs on the 1st of each month at 07:00 UTC (`pg_cron` job
+`stayfolio-monthly-report`). To test without sending, as the database owner:
+`select public.request_monthly_reports(null, true);` then read the reply in
+`net._http_response`.
+
 ## Sign-in emails must carry the code
 
 The app installed on an iPhone home screen does not share its session with
@@ -84,6 +127,5 @@ Safari, so opening the sign-in link there signs Safari in, not the app. The
 app therefore also accepts the code from the same email. Supabase only puts
 the code in the email if the template asks for it: in Supabase,
 Authentication → Emails, templates "Magic link" and "Confirm signup", keep
-the link and add a line with `{{ .Token }}`, for example:
-
-    <p>Ou saisis ce code dans l'app : <strong>{{ .Token }}</strong></p>
+the link and add a line with `{{ .Token }}`. The ready-made templates in
+`supabase/templates/` already do.

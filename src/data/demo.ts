@@ -165,6 +165,13 @@ export function createDemoBackend(): Backend {
       data.members = old ? data.members.map((m) => (m.id === member.id ? saved : m)) : [...data.members, saved];
       return structuredCloneSafe(saved);
     },
+    // The demo sends nothing; it answers as if the email had gone.
+    emailMemberLink: async () => {
+      await new Promise((r) => setTimeout(r, 400));
+    },
+    sendMemberReport: async () => {
+      await new Promise((r) => setTimeout(r, 400));
+    },
     rotateMemberToken: async (id) => {
       const token = newId().replace(/-/g, '') + newId().replace(/-/g, '').slice(0, 16);
       data.members = data.members.map((m) => (m.id === id ? { ...m, token } : m));

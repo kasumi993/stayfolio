@@ -10,6 +10,7 @@ import { Share, View } from 'react-native';
 
 import { newId } from '@/core/id';
 import { MEMBER_PAGES, type MemberPage } from '@/core/types';
+import { MailError } from '@/data/backend';
 import { useData, useStore } from '@/data/store';
 import { memberUrl, pageLabel } from '@/features/Members';
 import { useT } from '@/i18n';
@@ -37,6 +38,33 @@ export default function MemberScreen() {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [renewed, setRenewed] = useState(false);
+  // Result of the last email action, shown under its button.
+  const [mail, setMail] = useState<{ kind: 'link' | 'report'; ok: boolean; text: string } | null>(null);
+  const [mailing, setMailing] = useState<'link' | 'report' | null>(null);
+
+  const mailError = (e: unknown) => {
+    const reason = e instanceof MailError ? e.reason : 'failed';
+    return {
+      no_email: t('Ajoute d’abord son adresse e-mail et enregistre.', 'Add their email address first and save.'),
+      not_configured: t('L’envoi d’e-mails n’est pas encore activé sur le serveur (clé Brevo manquante).', 'Email sending is not set up on the server yet (Brevo key missing).'),
+      too_soon: t('Un récap vient de partir : réessaie dans quelques minutes.', 'A recap just went out: try again in a few minutes.'),
+      failed: t('L’e-mail n’a pas pu partir. Réessaie plus tard.', 'The email could not be sent. Try again later.'),
+    }[reason];
+  };
+  async function sendMail(kind: 'link' | 'report') {
+    if (!existing) return;
+    setMailing(kind);
+    setMail(null);
+    try {
+      const { backend } = useStore.getState();
+      await (kind === 'link' ? backend.emailMemberLink(existing.id) : backend.sendMemberReport(existing.id));
+      setMail({ kind, ok: true, text: kind === 'link' ? t(`Lien envoyé à ${existing.email}.`, `Link sent to ${existing.email}.`) : t(`Récap envoyé à ${existing.email}.`, `Recap sent to ${existing.email}.`) });
+    } catch (e) {
+      setMail({ kind, ok: false, text: mailError(e) });
+    } finally {
+      setMailing(null);
+    }
+  }
 
   const emailOk = !email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const valid = name.trim().length > 0 && pages.length > 0 && emailOk && (!report || email.trim().length > 0);
@@ -97,6 +125,9 @@ export default function MemberScreen() {
                 setCopied(true);
               }}
             />
+            {existing?.email ? (
+              <Button compact tone="quiet" icon="mail" label={t('Envoyer par e-mail', 'Email it')} busy={mailing === 'link'} onPress={() => void sendMail('link')} />
+            ) : null}
             <Button
               compact
               tone="quiet"
@@ -109,6 +140,7 @@ export default function MemberScreen() {
               }}
             />
           </View>
+          {mail?.kind === 'link' ? <Notice tone={mail.ok ? 'positive' : 'negative'} icon={mail.ok ? 'check' : 'alert'} text={mail.text} /> : null}
           <T variant="small" color={color.inkSoft}>
             {t(
               'Pas de compte ni de mot de passe : quiconque a ce lien entre avec ces droits. Envoie-le directement à la personne.',
@@ -156,9 +188,13 @@ export default function MemberScreen() {
         {!emailOk ? <Notice tone="negative" text={t('Cette adresse e-mail ne semble pas complète.', 'This email address does not look complete.')} /> : null}
         {report ? (
           <T variant="small" color={color.inkSoft}>
-            {t('La personne est notée comme destinataire. L’envoi démarrera dès qu’un service d’e-mail sera branché à l’app.', 'They are listed as a recipient. Sending starts as soon as an email service is connected to the app.')}
+            {t('Le 1er de chaque mois, le récap du mois écoulé part à cette adresse, avec seulement les pages que la personne voit.', 'On the 1st of each month, the recap of the past month goes to this address, with only the pages they can see.')}
           </T>
         ) : null}
+        {existing?.monthly_report && existing.email && !dirty ? (
+          <Button compact tone="quiet" icon="mail" label={t('Envoyer le récap du mois dernier maintenant', 'Send last month’s recap now')} busy={mailing === 'report'} onPress={() => void sendMail('report')} />
+        ) : null}
+        {mail?.kind === 'report' ? <Notice tone={mail.ok ? 'positive' : 'negative'} icon={mail.ok ? 'check' : 'alert'} text={mail.text} /> : null}
       </View>
 
       {existing ? (

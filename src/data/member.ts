@@ -48,6 +48,8 @@ const ownerOnly = {
   removeFiles: async () => {},
   saveMember: notAllowed,
   rotateMemberToken: notAllowed,
+  emailMemberLink: notAllowed,
+  sendMemberReport: notAllowed,
   publishShare: notAllowed,
   revokeShares: notAllowed,
   fetchShared: async () => null,
@@ -82,7 +84,7 @@ export function createMemberBackend(token: string): Backend {
   async function rpc<T>(fn: string, args: object): Promise<T> {
     const res = await fetch(`${url}/rest/v1/rpc/${fn}`, {
       method: 'POST',
-      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      headers: { apikey: key, 'Content-Type': 'application/json' },
       body: JSON.stringify(args),
     });
     const body = await res.json().catch(() => null);
@@ -96,7 +98,7 @@ export function createMemberBackend(token: string): Backend {
   async function files<T>(body: object): Promise<T> {
     const res = await fetch(`${url}/functions/v1/member-files`, {
       method: 'POST',
-      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      headers: { apikey: key, 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, ...body }),
     });
     const out = (await res.json().catch(() => null)) as (T & { error?: string }) | null;

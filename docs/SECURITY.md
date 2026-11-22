@@ -27,6 +27,8 @@ functions too; the `anon` role still has no table access.
 | A member editing the books freely | Private scope cannot be set, owner commission cannot be changed, party ids from another property are dropped, invoices can be filed but never deleted | `member_save()` |
 | Member files | `member-files` edge function: checks the token and the "invoices" page, signs 10-minute links only for the property's invoices, uploads only with `can_edit`, 10 MB max, images and PDF only | `supabase/functions/member-files` |
 | A member link that circulated | 48-character random token (192 bits), shown only to the owner; "Créer un nouveau lien" replaces it at once, "Retirer l'accès" deletes the member | `members.token`, `rotate_member_token()` |
+| Someone triggering recap emails | `monthly-report` runs only with a fresh, unused row of `report_requests`, a table no client can read or write; rows come from the schedule or from `send_member_report`, which checks that the member is the caller's and allows one sample per member every 5 minutes | `*_monthly_reports.sql` |
+| Leaking the Brevo key | `BREVO_API_KEY` is an edge function secret entered by the owner in the dashboard; the app never sees it | `supabase/functions/_shared/mail.ts` |
 | Runaway AI costs | Daily cap per user, counted server-side in a table the client cannot write | `bump_ai_usage()` |
 
 The app ships only the **publishable** key. It identifies the project and

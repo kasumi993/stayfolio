@@ -146,6 +146,17 @@ an email service).
 - "Voir comme cette personne" runs `createPreviewBackend`: the owner's data
   filtered by `memberView`, the device-side twin of `member_load`, read-only.
 
+## Emails (`supabase/functions/_shared/mail.ts`)
+
+Sign-in emails are Supabase Auth's, sent through Brevo SMTP, with the
+templates in `supabase/templates/`. The app's own emails go through Brevo's
+API with Brevo templates (source in `emails/brevo/`): `member-invite` sends a
+member their link, `monthly-report` sends each member who asked for it the
+past month of their property, built with the same `src/core` code as the app
+(`memberView`, `monthStatement`, `occupancy`, `payback`), copied into the
+function by `scripts/bundle-functions.mjs`. The recap shows only the pages the
+member's link allows.
+
 ## AI (`supabase/functions/ai`)
 
 Optional, and only where it saves real effort:

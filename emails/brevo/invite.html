@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Votre accès à un logement sur Stayfolio</title>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Hanken+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;padding:0;-webkit-text-size-adjust:100%}table{border-collapse:collapse}img{border:0;display:block}
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#F6F4EF;font-family:'Hanken Grotesk', Arial, Helvetica, sans-serif;">
+<div style="display:none;max-height:0;overflow:hidden;">Un lien personnel pour suivre les comptes du logement, sans compte ni mot de passe.</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#F6F4EF;"><tr><td align="center" style="padding-top:0px;padding-right:10px;padding-bottom:0px;padding-left:10px;">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;">
+<tr><td style="padding:32px 32px 20px 32px;">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+<td style="padding:0 10px 0 0;"><img src="https://stayfolio-gamma.vercel.app/logo192.png" alt="Stayfolio" width="34" style="width:34px;height:34px;display:block;border-radius:8px;"></td>
+<td style="font-family:Marcellus, Georgia, 'Times New Roman', serif;font-size:21px;line-height:26px;color:#24303C;">Stayfolio</td>
+</tr></table>
+</td></tr>
+<tr><td style="padding:0 16px 0 16px;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#FFFFFF;border-radius:14px;">
+<tr><td style="padding:36px 32px 8px 32px;">
+<h1 style="margin:0 0 20px;font-family:Marcellus, Georgia, 'Times New Roman', serif;font-weight:400;font-size:28px;line-height:36px;color:#24303C;">Votre accès à {{ params.property | default:"ce logement" }}</h1>
+<p style="margin:0 0 16px;font-size:16px;line-height:25px;color:#24303C;">Bonjour{% if params.name %} {{ params.name }}{% endif %},</p>
+<p style="margin:0 0 24px;font-size:16px;line-height:25px;color:#24303C;">{{ params.owner | default:"La propriétaire" }} vous donne accès aux comptes{% if params.property %} du logement « {{ params.property }} »{% else %} de son logement{% endif %} sur Stayfolio. Pas de compte ni de mot de passe : votre lien personnel suffit.</p>
+</td></tr>
+<tr><td style="padding:0 32px 8px 32px;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#F6F4EF;border-radius:10px;">
+<tr><td style="padding:16px 20px 4px 20px;font-size:13px;line-height:18px;color:#6B7581;">Ce que vous pouvez faire</td></tr>
+<tr><td style="padding:0 20px 14px 20px;font-size:16px;line-height:23px;color:#24303C;font-weight:600;">{{ params.access | default:"Consulter" }}</td></tr>
+<tr><td style="padding:0 20px 4px 20px;font-size:13px;line-height:18px;color:#6B7581;">{% if params.pages %}Pages visibles{% endif %}</td></tr>
+<tr><td style="padding:0 20px 16px 20px;font-size:16px;line-height:23px;color:#24303C;">{{ params.pages | default:"" }}</td></tr>
+</table>
+</td></tr>
+<tr><td align="left" style="padding:24px 32px 8px 32px;">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+<td style="background-color:#24303C;border-radius:8px;padding:14px 26px 14px 26px;"><a href="{{ params.link | default:'https://stayfolio-gamma.vercel.app' }}" style="font-family:'Hanken Grotesk', Arial, Helvetica, sans-serif;font-size:16px;font-weight:600;color:#FFFFFF;text-decoration:none;">Ouvrir le logement</a></td>
+</tr></table>
+</td></tr>
+<tr><td style="padding:20px 32px 32px 32px;">
+<p style="margin:0 0 10px;font-size:14px;line-height:21px;color:#6B7581;">Gardez ce lien pour vous : toute personne qui l’a entre avec vos droits. Sur téléphone, ajoutez la page à votre écran d’accueil pour la retrouver comme une application.</p>
+<p style="margin:0;font-size:14px;line-height:21px;color:#6B7581;">Une question ? Répondez simplement à cet e-mail.</p>
+</td></tr>
+</table>
+</td></tr>
+<tr><td style="padding:24px 32px 36px 32px;text-align:center;">
+<p style="margin:0 0 6px;font-size:12px;line-height:18px;color:#6B7581;">Envoyé par Stayfolio pour {{ params.owner | default:"la propriétaire du logement" }}.</p>
+<p style="margin:0;font-size:12px;line-height:18px;color:#6B7581;">Miracute, 13 rue de chanzy, 92000 Nanterre, France</p>
+</td></tr>
+</table>
+</td></tr></table>
+</body>
+</html>

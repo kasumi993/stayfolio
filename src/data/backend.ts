@@ -89,6 +89,10 @@ export interface Backend {
   saveMember(member: Omit<Member, 'token' | 'last_seen_at' | 'created_at'>): Promise<Member>;
   /** A new link for a member. The old one stops working at once. */
   rotateMemberToken(id: ID): Promise<string>;
+  /** Emails a member their link (Brevo). Throws MailError when it cannot. */
+  emailMemberLink(id: ID): Promise<void>;
+  /** Sends a member last month's recap now, as on the 1st of the month. */
+  sendMemberReport(id: ID): Promise<void>;
 
   publishShare(share: Omit<ShareLink, 'token' | 'created_at' | 'revoked'>, payload: SharedStatement): Promise<ShareLink>;
   /** Makes published links unreadable. The snapshots are kept, flagged revoked. */
@@ -100,6 +104,13 @@ export interface Backend {
 }
 
 /** Raised by AI calls when no API key has been configured on the server. */
+/** Why an email could not go: no address, sending not set up, too soon, or another error. */
+export class MailError extends Error {
+  constructor(readonly reason: 'no_email' | 'not_configured' | 'too_soon' | 'failed') {
+    super(reason);
+  }
+}
+
 export class AiUnavailable extends Error {
   constructor(public reason: 'not_configured' | 'quota' | 'demo') {
     super(reason);

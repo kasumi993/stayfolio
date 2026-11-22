@@ -11,7 +11,7 @@ import { AppState, Platform } from 'react-native';
 
 import { type Data, type Member, type Profile, emptyData } from '@/core/types';
 
-import { AiUnavailable, type Backend, type Session, type Table } from './backend';
+import { AiUnavailable, type Backend, MailError, type Session, type Table } from './backend';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
@@ -174,6 +174,17 @@ export function createSupabaseBackend(): Backend {
     },
     async rotateMemberToken(id) {
       return check(await db.rpc('rotate_member_token', { p_id: id })) as string;
+    },
+    async emailMemberLink(id) {
+      const { error } = await db.functions.invoke('member-invite', { body: { member_id: id } });
+      if (!error) return;
+      const response = (error as { context?: Response }).context;
+      const code = response && typeof response.json === 'function' ? ((await response.json().catch(() => ({}))) as { error?: string }).error : undefined;
+      throw new MailError(code === 'no_email' ? 'no_email' : code === 'mail_not_configured' ? 'not_configured' : 'failed');
+    },
+    async sendMemberReport(id) {
+      const { error } = await db.rpc('send_member_report', { p_member: id });
+      if (error) throw new MailError(error.message.includes('too soon') ? 'too_soon' : 'failed');
     },
 
     async uploadFile(path, bytes, mime) {
