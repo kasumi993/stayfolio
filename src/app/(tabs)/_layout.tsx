@@ -21,7 +21,7 @@ import { Icon, type IconName } from '@/ui/Icon';
 import { Sheet, useWide } from '@/ui/layout';
 import { Logo } from '@/ui/Logo';
 import { T } from '@/ui/Text';
-import { color, font, maxWidth, radius, space } from '@/ui/theme';
+import { color, fill, font, isOutline, maxWidth, radius, space } from '@/ui/theme';
 
 /**
  * The four destinations, all inside the space chosen at the top (one
@@ -212,7 +212,7 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
             accessibilityRole="button"
             accessibilityLabel={t('Ajouter', 'Add')}
             onPress={add}
-            style={({ pressed }) => ({ width: 50, height: 50, borderRadius: radius.lg, marginTop: -22, backgroundColor: color.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: color.paper, opacity: pressed ? 0.85 : 1 })}>
+            style={({ pressed }) => ({ width: 50, height: 50, borderRadius: radius.lg, marginTop: -22, backgroundColor: color.accent, alignItems: 'center', justifyContent: 'center', borderWidth: isOutline() ? 1.5 : 4, borderColor: isOutline() ? color.ink : color.paper, opacity: pressed ? 0.85 : 1 })}>
             <Icon name="plus" size={22} color={color.accentInk} weight={2.4} />
           </Pressable>
         </View>
@@ -227,7 +227,7 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
 function AddOption({ icon, title, text, onPress, tint = color.ink, bg }: { icon: IconName | 'minus'; title: string; text: string; onPress: () => void; tint?: string; bg: string }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.md, borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 8, backgroundColor: pressed ? color.sunken : 'transparent' })}>
-      <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: 40, height: 40, borderRadius: radius.md, ...fill(bg), alignItems: 'center', justifyContent: 'center' }}>
         {icon === 'minus' ? <View style={{ width: 13, height: 2.2, borderRadius: 2, backgroundColor: tint }} /> : <Icon name={icon} color={tint} size={19} />}
       </View>
       <View style={{ flex: 1 }}>

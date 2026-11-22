@@ -12,7 +12,7 @@ import { Row, SectionTitle } from '@/ui/controls';
 import { Block } from '@/ui/layout';
 import { Logo } from '@/ui/Logo';
 import { T } from '@/ui/Text';
-import { color, pigmentOf, radius, space } from '@/ui/theme';
+import { color, fill, pigmentOf, radius, space } from '@/ui/theme';
 
 export function periodLabel(s: SharedStatement, locale: Locale): string {
   const from = monthLabel(s.period.from, locale);
@@ -26,7 +26,7 @@ export function StatementView({ statement: s, locale, t }: { statement: SharedSt
   return (
     <View>
       <Logo size={22} />
-      <View style={{ backgroundColor: pigmentOf(s.property.color), borderRadius: radius.lg, padding: space.xl, marginTop: space.xl }}>
+      <View style={{ ...fill(pigmentOf(s.property.color)), borderRadius: radius.lg, padding: space.xl, marginTop: space.xl }}>
         <T variant="label" color={color.inkSoft}>
           {t(`Relevé pour ${s.audience}`, `Statement for ${s.audience}`)}
         </T>

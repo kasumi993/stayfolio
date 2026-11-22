@@ -168,7 +168,9 @@ income per night), green and red mark gains and losses, and each property has
 its own pigment. Titles use Marcellus (engraved roman letters); text and every
 amount use Hanken Grotesk (`font.figure` for big amounts: Marcellus' round
 zero reads as an O). The dark theme is the same design at night: slate page,
-sand text. Corners are small (8 to 20) and most lists have no frame, only
+sand text. A third theme, "Noir et blanc" (`mono`), is plain black and white and
+draws every tinted surface as an outline: components get their background
+from `fill(tint)` in `theme.ts`, never a raw tint. Corners are small (8 to 20) and most lists have no frame, only
 dividers.
 
 Figures are shown as pictures wherever that reads faster (`charts.tsx`):

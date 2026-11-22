@@ -4,14 +4,14 @@ import { ActivityIndicator, Pressable, Switch, View, type ViewStyle } from 'reac
 
 import { Icon, type IconName } from './Icon';
 import { T } from './Text';
-import { color, radius, space } from './theme';
+import { color, fill, isOutline, radius, space } from './theme';
 
 type Tone = 'primary' | 'dark' | 'quiet' | 'danger';
 
 /** Read at render time, so buttons follow the active theme. */
 const toneOf = (tone: Tone): { bg: string; fg: string; border?: string } =>
   ({
-    primary: { bg: color.accent, fg: color.accentInk },
+    primary: { bg: color.accent, fg: color.accentInk, border: isOutline() ? color.ink : undefined },
     dark: { bg: color.ink, fg: color.paper },
     quiet: { bg: 'transparent', fg: color.ink, border: color.lineStrong },
     danger: { bg: 'transparent', fg: color.negative, border: color.negativeSoft },
@@ -87,7 +87,7 @@ export function Chip({ label, selected, onPress, dot }: { label: string; selecte
         height: 34,
         borderRadius: radius.sm + 2,
         backgroundColor: selected ? color.selected : color.surface,
-        borderWidth: 1,
+        borderWidth: selected && isOutline() ? 2 : 1,
         borderColor: selected ? color.selectedBorder : color.line,
         opacity: pressed ? 0.7 : 1,
       })}>
@@ -202,7 +202,7 @@ export function TextLink({ label, onPress, tint = color.ink }: { label: string; 
 export function Notice({ text, tone = 'notice', icon = 'alert', action }: { text: string; tone?: 'notice' | 'negative' | 'positive'; icon?: IconName; action?: ReactNode }) {
   const bg = { notice: color.noticeSoft, negative: color.negativeSoft, positive: color.positiveSoft }[tone];
   return (
-    <View style={{ flexDirection: 'row', gap: space.md, alignItems: 'flex-start', backgroundColor: bg, borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: space.md }}>
+    <View style={{ flexDirection: 'row', gap: space.md, alignItems: 'flex-start', ...fill(bg), borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: space.md }}>
       <Icon name={icon} size={17} color={color.inkSoft} />
       <View style={{ flex: 1, gap: space.xs }}>
         <T variant="label">{text}</T>
@@ -225,7 +225,7 @@ export function Empty({ title, text, children }: { title: string; text: string; 
 }
 
 export const Dot = ({ tint, size = 10 }: { tint: string; size?: number }) => (
-  <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: tint }} />
+  <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: tint, borderWidth: isOutline() ? 1 : 0, borderColor: color.ink }} />
 );
 
 /**
@@ -251,7 +251,7 @@ export function Tag({ label, tone = 'neutral' }: { label: string; tone?: 'neutra
   const bg = { neutral: color.sunken, positive: color.positiveSoft, negative: color.negativeSoft, notice: color.noticeSoft }[tone];
   const fg = { neutral: color.inkSoft, positive: color.positive, negative: color.negative, notice: color.ink }[tone];
   return (
-    <View style={{ alignSelf: 'flex-start', paddingHorizontal: 10, height: 26, justifyContent: 'center', borderRadius: radius.sm, backgroundColor: bg }}>
+    <View style={{ alignSelf: 'flex-start', paddingHorizontal: 10, height: 26, justifyContent: 'center', borderRadius: radius.sm, ...fill(bg) }}>
       <T variant="label" color={fg}>
         {label}
       </T>

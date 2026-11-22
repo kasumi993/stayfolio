@@ -20,7 +20,7 @@ import { Button, Dot, Empty, Notice, Row, SectionTitle, Tag, TextLink } from '@/
 import { Icon } from '@/ui/Icon';
 import { Block, Card, Cols, Screen, useWide } from '@/ui/layout';
 import { T } from '@/ui/Text';
-import { color, pigmentDot, radius, seriesColors, space } from '@/ui/theme';
+import { color, fill, pigmentDot, radius, seriesColors, space } from '@/ui/theme';
 
 export default function MonthScreen() {
   useQuickAdd();
@@ -182,7 +182,7 @@ function BigButton({ label, icon, tint, ink, onPress }: { label: string; icon: '
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => ({ flex: 1, backgroundColor: tint, borderRadius: radius.lg, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, opacity: pressed ? 0.8 : 1 })}>
+      style={({ pressed }) => ({ flex: 1, ...fill(tint), borderRadius: radius.lg, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, opacity: pressed ? 0.8 : 1 })}>
       <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: ink, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={icon} size={16} color={color.paper} weight={2.5} />
       </View>

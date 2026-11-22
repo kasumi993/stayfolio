@@ -9,7 +9,7 @@ import { kindLabel, useLocale, useT } from '@/i18n';
 import { Choice, Dot, TextLink } from '@/ui/controls';
 import { Label } from '@/ui/fields';
 import { T } from '@/ui/Text';
-import { color, pigmentDot, pigmentOf, radius, space } from '@/ui/theme';
+import { color, fill, pigmentDot, pigmentOf, radius, space } from '@/ui/theme';
 
 import type { PropertyChoice } from './hooks';
 
@@ -23,7 +23,7 @@ export function PropertyField({ choice, editing }: { choice: PropertyChoice; edi
     return (
       <View
         accessibilityLabel={t(`Logement : ${property?.name ?? 'aucun'}`, `Property: ${property?.name ?? 'none'}`)}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: pigmentOf(property?.color), borderRadius: radius.lg, paddingVertical: 12, paddingHorizontal: 14 }}>
+        style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, ...fill(pigmentOf(property?.color)), borderRadius: radius.lg, paddingVertical: 12, paddingHorizontal: 14 }}>
         <Dot tint={pigmentDot(property?.color)} size={10} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <T variant="bodyBold" numberOfLines={1}>

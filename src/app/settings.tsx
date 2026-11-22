@@ -66,7 +66,7 @@ export default function SettingsScreen() {
           options={[
             { value: 'pastel' as const, label: t('Clair', 'Light'), dot: '#8ED0AC' },
             { value: 'dark' as const, label: t('Sombre', 'Dark'), dot: '#4A5568' },
-            { value: 'indigo' as const, label: 'Indigo', dot: '#2B2580' },
+            { value: 'mono' as const, label: t('Noir et blanc', 'Black and white'), dot: '#111111' },
           ]}
         />
       </View>

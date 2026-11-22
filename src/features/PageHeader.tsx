@@ -13,7 +13,7 @@ import { Dot, IconButton, Tag, TextLink } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
 import { Sheet, useWide } from '@/ui/layout';
 import { T } from '@/ui/Text';
-import { color, pigmentDot, pigmentOf, radius, space } from '@/ui/theme';
+import { color, fill, isOutline, pigmentDot, pigmentOf, radius, space } from '@/ui/theme';
 
 import { useAccess, useSelection } from './hooks';
 
@@ -120,8 +120,8 @@ export function SpaceCard({ onPress, compact }: { onPress: () => void; compact?:
         paddingRight: 10,
         borderRadius: radius.lg,
         backgroundColor: property ? pigmentOf(property.color) : color.sunken,
-        borderWidth: property ? 0 : 1,
-        borderColor: color.line,
+        borderWidth: property && !isOutline() ? 0 : 1,
+        borderColor: isOutline() ? color.ink : color.line,
         opacity: pressed ? 0.85 : 1,
         minWidth: 0,
       })}>
@@ -154,7 +154,7 @@ function SpaceLine() {
   const t = useT();
   const { property } = useSelection();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginBottom: space.sm, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: property ? pigmentOf(property.color) : color.sunken }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginBottom: space.sm, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.pill, ...fill(property ? pigmentOf(property.color) : color.sunken) }}>
       <Dot tint={pigmentDot(property?.color)} size={8} />
       <T variant="label">{property?.name ?? t('Tous les logements', 'All properties')}</T>
     </View>
@@ -188,7 +188,7 @@ export function PropertyMenu({ onChosen }: { onChosen?: () => void }) {
             accessibilityState={{ selected }}
             accessibilityLabel={p.name}
             onPress={() => pick(p.id)}
-            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, backgroundColor: pigmentOf(p.color), borderWidth: 2, borderColor: selected ? pigmentDot(p.color) : 'transparent', opacity: pressed ? 0.85 : 1 })}>
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, backgroundColor: pigmentOf(p.color), borderWidth: 2, borderColor: selected ? pigmentDot(p.color) : isOutline() ? color.line : 'transparent', opacity: pressed ? 0.85 : 1 })}>
             <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: pigmentDot(p.color), alignItems: 'center', justifyContent: 'center' }}>
               <T variant="bodyBold" color={color.paper}>
                 {initial(p.name)}

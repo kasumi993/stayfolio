@@ -19,7 +19,7 @@ import { dayLabel, monthLabel, useLocale, useT } from '@/i18n';
 import { Button, Dot, Empty, Notice, Row, SectionTitle } from '@/ui/controls';
 import { Block, Cols, Screen, useWide } from '@/ui/layout';
 import { T } from '@/ui/Text';
-import { brand, color, pigmentDot, pigmentOf, platformColor, radius, space } from '@/ui/theme';
+import { brand, color, fill, isOutline, pigmentDot, pigmentOf, platformColor, radius, space } from '@/ui/theme';
 
 const WEEKDAYS = { fr: ['L', 'M', 'M', 'J', 'V', 'S', 'D'], en: ['M', 'T', 'W', 'T', 'F', 'S', 'S'] };
 const BAR = 20;
@@ -277,8 +277,8 @@ function Bar({ seg, days, top, compact }: { seg: Segment; days: number; top: num
           borderBottomLeftRadius: seg.cutStart ? 0 : r,
           borderTopRightRadius: seg.cutEnd ? 0 : r,
           borderBottomRightRadius: seg.cutEnd ? 0 : r,
-          borderWidth: seg.stay.clash ? 2 : 0,
-          borderColor: color.negative,
+          borderWidth: seg.stay.clash ? 2 : isOutline() ? 1 : 0,
+          borderColor: seg.stay.clash ? color.negative : color.ink,
           overflow: 'hidden',
         }}>
         {!compact || seg.end - seg.start >= 2 ? (
@@ -293,7 +293,7 @@ function Bar({ seg, days, top, compact }: { seg: Segment; days: number; top: num
 
 function Figure({ label, value, note, tint }: { label: string; value: string; note: string; tint: string }) {
   return (
-    <View style={{ flex: 1, backgroundColor: tint, borderRadius: radius.lg, padding: space.lg, gap: 2 }}>
+    <View style={{ flex: 1, ...fill(tint), borderRadius: radius.lg, padding: space.lg, gap: 2 }}>
       <T variant="label" color={color.inkSoft}>
         {label}
       </T>

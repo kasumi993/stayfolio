@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from './controls';
 import { T } from './Text';
-import { color, maxWidth, pageWidth, radius, space, wideFrom } from './theme';
+import { color, fill, maxWidth, pageWidth, radius, space, wideFrom } from './theme';
 
 /** True when the window is wide enough for the desktop layout. */
 export function useWide(): boolean {
@@ -65,7 +65,7 @@ export function Cols({ children, ratio, gap = space.xxl }: { children: ReactNode
 
 /** A thin-bordered frame for a chart or a group of figures. */
 export const Card = ({ children, tint }: { children: ReactNode; tint?: string }) => (
-  <View style={{ borderWidth: tint ? 0 : 1, borderColor: color.line, backgroundColor: tint, borderRadius: radius.lg, padding: space.lg }}>{children}</View>
+  <View style={{ ...(tint ? fill(tint) : { borderWidth: 1, borderColor: color.line }), borderRadius: radius.lg, padding: space.lg }}>{children}</View>
 );
 
 /** Groups rows of a list. Deliberately frameless: rows sit directly on the page. */

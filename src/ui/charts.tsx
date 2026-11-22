@@ -13,7 +13,7 @@ import { Pressable, View } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { T } from './Text';
-import { color, radius, space } from './theme';
+import { color, fill, radius, space } from './theme';
 
 /** A circular gauge. `value` is a fraction between 0 and 1. */
 export function Ring({ value, size = 64, stroke = 8, tint = color.ring, children }: { value: number; size?: number; stroke?: number; tint?: string; children?: ReactNode }) {
@@ -152,7 +152,7 @@ export function Breakdown({ items, format }: { items: { label: string; value: nu
 /** One key figure on a soft tint, optionally with a small drawing on the right. */
 export function Tile({ label, value, note, tint, aside }: { label: string; value: string; note?: string; tint: string; aside?: ReactNode }) {
   return (
-    <View style={{ flex: 1, minWidth: 0, backgroundColor: tint, borderRadius: radius.lg, padding: 14, flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+    <View style={{ flex: 1, minWidth: 0, ...fill(tint), borderRadius: radius.lg, padding: 14, flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
       <View style={{ flex: 1, minWidth: 0 }}>
         <T variant="label" color={color.inkSoft} numberOfLines={1}>
           {label}
