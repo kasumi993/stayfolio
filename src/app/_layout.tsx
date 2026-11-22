@@ -1,4 +1,5 @@
-import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-sans';
+import { HankenGrotesk_400Regular, HankenGrotesk_500Medium, HankenGrotesk_600SemiBold } from '@expo-google-fonts/hanken-grotesk';
+import { Marcellus_400Regular } from '@expo-google-fonts/marcellus';
 import { useFonts } from 'expo-font';
 import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -20,9 +21,10 @@ const OWNER_ONLY = new Set(['welcome', 'recurring', 'transfer', 'rules', 'share'
 
 export default function RootLayout() {
   const [fontsReady] = useFonts({
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_500Medium,
-    PlusJakartaSans_600SemiBold,
+    Marcellus_400Regular,
+    HankenGrotesk_400Regular,
+    HankenGrotesk_500Medium,
+    HankenGrotesk_600SemiBold,
   });
   const starting = useStore((s) => s.status === 'starting');
   const theme = useStore((s) => s.theme);

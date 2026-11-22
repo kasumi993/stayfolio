@@ -21,7 +21,7 @@ import { Icon, type IconName } from '@/ui/Icon';
 import { Sheet, useWide } from '@/ui/layout';
 import { Logo } from '@/ui/Logo';
 import { T } from '@/ui/Text';
-import { color, maxWidth, radius, space } from '@/ui/theme';
+import { color, font, maxWidth, radius, space } from '@/ui/theme';
 
 /**
  * The four destinations, all inside the space chosen at the top (one
@@ -192,7 +192,7 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
     return (
       <Pressable key={item.name} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={t(item.fr, item.en)} onPress={() => goTo(item.name)} style={{ flex: 1, alignItems: 'center', gap: 3, paddingVertical: 6 }}>
         <Icon name={item.icon} size={21} color={active ? color.ink : color.inkFaint} weight={active ? 2.2 : 1.9} />
-        <T variant="small" color={active ? color.ink : color.inkFaint} style={active ? { fontFamily: 'PlusJakartaSans_600SemiBold' } : undefined}>
+        <T variant="small" color={active ? color.ink : color.inkFaint} style={active ? { fontFamily: font.textBold } : undefined}>
           {t(item.fr, item.en)}
         </T>
       </Pressable>

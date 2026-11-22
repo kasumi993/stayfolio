@@ -90,7 +90,7 @@ export function AmountField({ label, value, onChangeText, currency, autoFocus }:
         keyboardType="numbers-and-punctuation"
         placeholder="0"
         placeholderTextColor={color.inkFaint}
-        style={[inputStyle(), { minHeight: 60, fontFamily: font.display, fontSize: 26, borderColor: invalid ? color.negative : color.line }]}
+        style={[inputStyle(), { minHeight: 60, fontFamily: font.figure, fontSize: 26, borderColor: invalid ? color.negative : color.line }]}
       />
       {invalid || isFormula(value) || !value ? (
         <T variant="small" color={invalid ? color.negative : color.inkSoft} style={{ marginTop: 6 }}>

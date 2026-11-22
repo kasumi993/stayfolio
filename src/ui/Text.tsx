@@ -33,6 +33,8 @@ export function T({ variant = 'body', color: c = color.ink, align, tabular, styl
         variants[variant],
         { color: c, textAlign: align },
         tabular && { fontVariant: ['tabular-nums'] },
+        // Amounts never use the display face: its round zero reads as a letter O.
+        tabular && (variant === 'hero' || variant === 'title') && { fontFamily: font.figure, letterSpacing: -0.6 },
         style,
       ]}
     />

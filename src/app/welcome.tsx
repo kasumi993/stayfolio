@@ -177,7 +177,7 @@ function BrandPanel({ wide, top }: { wide: boolean; top: number }) {
   const t = useT();
   const onInk = 'rgba(255,255,255,0.68)';
   return (
-    <View style={{ width: wide ? 400 : undefined, backgroundColor: isDark() ? '#110C09' : brand.ink, padding: wide ? 40 : 20, paddingTop: wide ? 40 : top + 28, paddingBottom: wide ? 40 : 28, overflow: 'hidden', minHeight: wide ? 520 : undefined }}>
+    <View style={{ width: wide ? 400 : undefined, backgroundColor: isDark() ? '#0F1418' : brand.ink, padding: wide ? 40 : 20, paddingTop: wide ? 40 : top + 28, paddingBottom: wide ? 40 : 28, overflow: 'hidden', minHeight: wide ? 520 : undefined }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <Mark size={wide ? 40 : 34} />
         <T variant="heading" color="#FFFFFF" style={{ fontSize: wide ? 22 : 20 }}>
