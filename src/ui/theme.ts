@@ -8,7 +8,7 @@
  * Three themes share the same token names:
  *   - `pastel` (default): sage, sky, blush and butter on white;
  *   - `dark`: the same pastels on the ink of the logo, for the evening;
- *   - `mono`: plain black and white, outlines instead of fills.
+ *   - `mono`: black and white on a black page, outlines instead of fills.
  *
  * How switching works: `color` is one shared object. `applyTheme` swaps its
  * values, and the root layout re-creates the screens (see src/app/_layout.tsx),
@@ -114,50 +114,51 @@ const themes = {
     },
     platform: { airbnb: '#DDA6B0', booking: '#A3B8D1', direct: '#DCC28A', other: '#C8C3B9' },
   },
-  // Plain black and white: no coloured fills, shapes drawn as outlines.
+  // Black and white, dark: a true black page, white ink, no coloured fills.
+  // Surfaces are fine grey outlines; actions and selections a white one.
   mono: {
     color: {
-      ink: '#111111',
-      inkSoft: '#5C5C5C',
-      inkFaint: '#9A9A9A',
-      paper: '#FFFFFF',
-      surface: '#FFFFFF',
-      sunken: '#FFFFFF',
-      line: '#E3E3E3',
-      lineStrong: '#111111',
-      accent: '#FFFFFF',
-      accentInk: '#111111',
-      positive: '#111111',
-      positiveSoft: '#FFFFFF',
-      negative: '#111111',
-      negativeSoft: '#FFFFFF',
-      noticeSoft: '#FFFFFF',
+      ink: '#F5F5F5',
+      inkSoft: '#9C9C9C',
+      inkFaint: '#626262',
+      paper: '#000000',
+      surface: '#000000',
+      sunken: '#000000',
+      line: '#232323',
+      lineStrong: '#4A4A4A',
+      accent: '#000000',
+      accentInk: '#F5F5F5',
+      positive: '#F5F5F5',
+      positiveSoft: '#000000',
+      negative: '#F5F5F5',
+      negativeSoft: '#000000',
+      noticeSoft: '#000000',
       white: '#FFFFFF',
-      whiteSoft: 'rgba(255,255,255,0.82)',
-      selected: '#FFFFFF',
-      onSelected: '#111111',
-      selectedBorder: '#111111',
-      chartIncome: '#111111',
-      chartExpense: '#A8A8A8',
-      chartLine: '#111111',
-      ring: '#111111',
-      tintIncome: '#FFFFFF',
-      tintExpense: '#FFFFFF',
-      tintOccupancy: '#FFFFFF',
-      tintNight: '#FFFFFF',
-      veil: 'rgba(0,0,0,0.3)',
+      whiteSoft: 'rgba(255,255,255,0.16)',
+      selected: '#000000',
+      onSelected: '#F5F5F5',
+      selectedBorder: '#F5F5F5',
+      chartIncome: '#F5F5F5',
+      chartExpense: '#5E5E5E',
+      chartLine: '#F5F5F5',
+      ring: '#F5F5F5',
+      tintIncome: '#000000',
+      tintExpense: '#000000',
+      tintOccupancy: '#000000',
+      tintNight: '#000000',
+      veil: 'rgba(0,0,0,0.72)',
     },
-    scheme: 'light',
+    scheme: 'dark',
     outline: true,
     pigment: {
-      indigo: { tint: '#FFFFFF', strong: '#111111' },
-      bissap: { tint: '#FFFFFF', strong: '#111111' },
-      lagoon: { tint: '#FFFFFF', strong: '#111111' },
-      baobab: { tint: '#FFFFFF', strong: '#111111' },
-      laterite: { tint: '#FFFFFF', strong: '#111111' },
-      all: { tint: '#FFFFFF', strong: '#111111' },
+      indigo: { tint: '#000000', strong: '#F5F5F5' },
+      bissap: { tint: '#000000', strong: '#F5F5F5' },
+      lagoon: { tint: '#000000', strong: '#F5F5F5' },
+      baobab: { tint: '#000000', strong: '#F5F5F5' },
+      laterite: { tint: '#000000', strong: '#F5F5F5' },
+      all: { tint: '#000000', strong: '#F5F5F5' },
     },
-    platform: { airbnb: '#FFFFFF', booking: '#FFFFFF', direct: '#FFFFFF', other: '#FFFFFF' },
+    platform: { airbnb: '#000000', booking: '#000000', direct: '#000000', other: '#000000' },
   },
   // Night version of "K": slate ink as the page, sand text, the same muted colours.
   dark: {
@@ -240,7 +241,7 @@ export const isOutline = (): boolean => !!active.outline;
  * and white theme it becomes a thin black outline on white.
  */
 export const fill = (tint: string, width = 1): { backgroundColor: string; borderWidth?: number; borderColor?: string } =>
-  active.outline ? { backgroundColor: color.surface, borderWidth: width, borderColor: color.ink } : { backgroundColor: tint };
+  active.outline ? { backgroundColor: color.surface, borderWidth: width, borderColor: color.lineStrong } : { backgroundColor: tint };
 
 /** Keys a property can pick as its colour. Stored on the property, theme-independent. */
 export const pigmentKeys = ['indigo', 'bissap', 'lagoon', 'baobab', 'laterite'];

@@ -278,7 +278,7 @@ function Bar({ seg, days, top, compact }: { seg: Segment; days: number; top: num
           borderTopRightRadius: seg.cutEnd ? 0 : r,
           borderBottomRightRadius: seg.cutEnd ? 0 : r,
           borderWidth: seg.stay.clash ? 2 : isOutline() ? 1 : 0,
-          borderColor: seg.stay.clash ? color.negative : color.ink,
+          borderColor: seg.stay.clash ? color.negative : color.lineStrong,
           overflow: 'hidden',
         }}>
         {!compact || seg.end - seg.start >= 2 ? (

@@ -225,7 +225,7 @@ export function Empty({ title, text, children }: { title: string; text: string; 
 }
 
 export const Dot = ({ tint, size = 10 }: { tint: string; size?: number }) => (
-  <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: tint, borderWidth: isOutline() ? 1 : 0, borderColor: color.ink }} />
+  <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: tint, borderWidth: isOutline() ? 1 : 0, borderColor: color.lineStrong }} />
 );
 
 /**
