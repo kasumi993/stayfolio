@@ -61,7 +61,7 @@ export default function DocumentsScreen() {
 
   return (
     <Screen reading>
-      <PageHeader title={t('Factures', 'Invoices')} subtitle={property ? property.name : t('Tous les biens', 'All properties')} />
+      <PageHeader title={t('Factures', 'Invoices')} subtitle={property ? property.name : t('Tous les logements', 'All properties')} />
       {canEdit ? (
         <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.lg }}>
           <Button compact icon="camera" label={t('Photographier', 'Take a photo')} onPress={() => void add(takePhoto)} style={{ flex: 1 }} />

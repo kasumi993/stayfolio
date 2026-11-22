@@ -15,6 +15,7 @@ import { type Booking, CATEGORIES, type Doc, type Expense, PLATFORMS } from '@/c
 import { AiUnavailable } from '@/data/backend';
 import { useData, useStore } from '@/data/store';
 import { useAccess, useMoney, usePartiesOf, usePropertyChoice } from '@/features/hooks';
+import { PropertyField } from '@/features/PropertyField';
 import { peekPendingFile, setPendingFile } from '@/features/pendingFile';
 import { categoryLabel, dayLabel, monthLabel, useLocale, useT } from '@/i18n';
 import { type PickedFile, pickDocument, pickPhoto, takePhoto } from '@/platform/pick';
@@ -66,7 +67,8 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
   const [excluded, setExcluded] = useState(existing?.excluded ?? false);
   const [more, setMore] = useState(existing ? existing.scope !== 'property' || existing.charged_to !== null : false);
   const [busy, setBusy] = useState(false);
-  const { propertyId, setPropertyId, options } = usePropertyChoice(existing ? existing.property_id : undefined, owner);
+  const place = usePropertyChoice(existing ? existing.property_id : undefined, owner);
+  const { propertyId } = place;
   const { rate, custom, setCustom, fallback, foreign } = useRate(currency, existing?.fx_rate);
   const parties = usePartiesOf(propertyId);
   const docs = data.docs.filter((d) => existing && d.expense_id === existing.id);
@@ -172,7 +174,8 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
   return (
     <FormScreen
       title={existing ? t('Dépense', 'Expense') : t('Nouvelle dépense', 'New expense')}
-      footer={<Button label={t('Enregistrer', 'Save')} onPress={submit} busy={busy} disabled={value === null || value === 0} />}>
+      footer={<Button label={t('Enregistrer', 'Save')} onPress={submit} busy={busy} disabled={value === null || value === 0 || !place.chosen} />}>
+      <PropertyField choice={place} editing={!!existing} />
       {existing?.recurring_id ? (
         <View style={{ borderWidth: 1, borderColor: color.line, borderRadius: radius.lg, padding: space.lg }}>
           <Toggle
@@ -195,10 +198,6 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
         <Choice value={category} onChange={setCategory} options={CATEGORIES.map((c) => ({ value: c as string, label: categoryLabel(c, locale) }))} />
       </View>
 
-      <View>
-        <Label>{t('Bien', 'Property')}</Label>
-        <Choice value={propertyId} onChange={setPropertyId} options={options} />
-      </View>
 
       <DateFields items={[{ label: t('Date', 'Date'), value: date, onChange: (d) => d && setDate(d) }]} />
       <Field label={t('Fournisseur', 'Vendor')} value={vendor} onChangeText={setVendor} suggestions={vendors} placeholder="Woyofal, Orange, Diarra…" />
@@ -322,7 +321,8 @@ function BookingForm({ id }: { id?: string }) {
   const [receivedBy, setReceivedBy] = useState(existing?.received_by ?? null);
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
-  const { propertyId, setPropertyId, options } = usePropertyChoice(existing ? existing.property_id : undefined, false);
+  const place = usePropertyChoice(existing ? existing.property_id : undefined, false);
+  const { propertyId } = place;
   const { rate, custom, setCustom, fallback, foreign } = useRate(currency, existing?.fx_rate);
   const parties = usePartiesOf(propertyId);
 
@@ -365,6 +365,7 @@ function BookingForm({ id }: { id?: string }) {
     <FormScreen
       title={existing ? t('Revenu', 'Income') : t('Nouveau revenu', 'New income')}
       footer={<Button label={t('Enregistrer', 'Save')} onPress={submit} busy={busy} disabled={value === null || value === 0 || !propertyId} />}>
+      <PropertyField choice={place} editing={!!existing} />
       <AmountField label={t('Montant net reçu', 'Net payout')} value={amount} onChangeText={setAmount} currency={currency} autoFocus={!existing} />
       <Choice value={currency} onChange={setCurrency} options={CURRENCIES.map((c) => ({ value: c, label: c }))} />
       {foreign ? <Field label={t(`Taux : 1 ${currency} en ${profile.currency}`, `Rate: 1 ${currency} in ${profile.currency}`)} value={custom ?? String(fallback)} onChangeText={setCustom} keyboardType="numbers-and-punctuation" /> : null}
@@ -374,10 +375,6 @@ function BookingForm({ id }: { id?: string }) {
         <Choice value={platform} onChange={setPlatform} options={platforms.map((p) => ({ value: p, label: p, dot: platformColor(p) }))} />
       </View>
 
-      <View>
-        <Label>{t('Bien', 'Property')}</Label>
-        <Choice value={propertyId} onChange={setPropertyId} options={options} />
-      </View>
 
       <View>
         <DateFields

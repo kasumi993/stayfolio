@@ -5,7 +5,7 @@ import { Pressable, View } from 'react-native';
 import { balances, occupancy, payback, statement } from '@/core/calc';
 import { currentMonth, monthRange, yearOf } from '@/core/dates';
 import type { Property } from '@/core/types';
-import { useData } from '@/data/store';
+import { useData, useStore } from '@/data/store';
 import { useMoney } from '@/features/hooks';
 import { PageHeader } from '@/features/PageHeader';
 import { kindLabel, useLocale, useT } from '@/i18n';
@@ -23,7 +23,11 @@ export default function PropertiesScreen() {
   const year = String(yearOf(currentMonth()));
   const active = data.properties.filter((p) => !p.archived);
   const archived = data.properties.filter((p) => p.archived);
-  const open = (p: Property) => router.push({ pathname: '/property', params: { id: p.id } });
+  // Opening a property's page also enters its space, so what follows is about it.
+  const open = (p: Property) => {
+    if (!p.archived) useStore.getState().setProperty(p.id);
+    router.push({ pathname: '/property', params: { id: p.id } });
+  };
 
   return (
     <Screen>

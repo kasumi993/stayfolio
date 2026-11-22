@@ -82,6 +82,8 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** The member link this device last opened, so the installed app reopens on it. */
 const MEMBER_PREF = 'member';
+/** The property space last opened on this device. */
+const SPACE_PREF = 'space';
 
 /** The owner's backend while she previews a member's view. */
 let ownerBackend: Backend | null = null;
@@ -107,8 +109,12 @@ export const useStore = create<Store>((set, get) => {
       const data = await get().backend.load();
       // Through a member link there is one property, always selected.
       const only = get().backend.access ? (data.properties[0]?.id ?? null) : null;
-      const keep = data.properties.some((p) => p.id === get().propertyId);
-      set({ data, status: 'ready', propertyId: only ?? (keep ? get().propertyId : null) });
+      // Otherwise: the space already open, else the one last opened on this
+      // device, else the only property there is, else the overview.
+      const active = data.properties.filter((p) => !p.archived);
+      const valid = (id: ID | null | undefined) => (id && active.some((p) => p.id === id) ? id : null);
+      const space = only ?? valid(get().propertyId) ?? valid(getPref(SPACE_PREF)) ?? (active.length === 1 ? active[0].id : null);
+      set({ data, status: 'ready', propertyId: space });
       if (!get().backend.access) await get().syncRecurring();
     } catch (e) {
       if (e instanceof LinkRevoked) {
@@ -174,7 +180,10 @@ export const useStore = create<Store>((set, get) => {
       if (due.length) await get().save('expenses', due).catch(() => {});
     },
 
-    setProperty: (propertyId) => set({ propertyId }),
+    setProperty: (propertyId) => {
+      if (!get().backend.access) setPref(SPACE_PREF, propertyId ?? '');
+      set({ propertyId });
+    },
     setMonth: (month) => set({ month }),
     setTheme(theme) {
       applyTheme(theme);

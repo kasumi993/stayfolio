@@ -94,8 +94,14 @@ export default function MonthScreen() {
               ),
             ].filter((x) => x !== null)}
           </Tiles>
-          {!owner && property && sees('cash') ? (
-            <Button compact tone="quiet" icon="users" label={t('Caisse et apports', 'Cash and contributions')} onPress={() => router.push({ pathname: '/property', params: { id: property.id } })} />
+          {property && (owner || sees('cash')) ? (
+            <Button
+              compact
+              tone="quiet"
+              icon={owner ? 'building' : 'users'}
+              label={owner ? t('Fiche du logement : caisse, membres, règles', 'Property page: cash, members, rules') : t('Caisse et apports', 'Cash and contributions')}
+              onPress={() => router.push({ pathname: '/property', params: { id: property.id } })}
+            />
           ) : null}
         </View>
       </Cols>

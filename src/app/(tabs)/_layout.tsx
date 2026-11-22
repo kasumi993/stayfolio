@@ -5,14 +5,14 @@
 import { Tabs, router } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useStore } from '@/data/store';
-import { useAccess } from '@/features/hooks';
+import { useAccess, useSelection } from '@/features/hooks';
 import { InstallBanner } from '@/features/InstallBanner';
 import { MemberBar } from '@/features/MemberBar';
-import { PropertyMenu } from '@/features/PageHeader';
+import { PropertyMenu, SpaceCard } from '@/features/PageHeader';
 import { setPendingFile } from '@/features/pendingFile';
 import { useT } from '@/i18n';
 import { type PickedFile, pickDocument, takePhoto } from '@/platform/pick';
@@ -23,15 +23,21 @@ import { Logo } from '@/ui/Logo';
 import { T } from '@/ui/Text';
 import { color, maxWidth, radius, space } from '@/ui/theme';
 
-/** The four destinations. Recording income and expenses comes first. */
+/**
+ * The four destinations, all inside the space chosen at the top (one
+ * property, or the overview). Recording income and expenses comes first.
+ */
 const TABS: { name: string; icon: IconName; fr: string; en: string }[] = [
   { name: 'index', icon: 'home', fr: 'Accueil', en: 'Home' },
   { name: 'entries', icon: 'list', fr: 'Saisies', en: 'Entries' },
+  { name: 'calendar', icon: 'month', fr: 'Calendrier', en: 'Calendar' },
   { name: 'documents', icon: 'receipt', fr: 'Factures', en: 'Invoices' },
-  { name: 'properties', icon: 'building', fr: 'Biens', en: 'Places' },
 ];
-/** Reached from the home screen and the properties; listed in the sidebar on a computer. */
-const MORE: { name: string; icon: IconName; fr: string; en: string }[] = [{ name: 'reports', icon: 'chart', fr: 'Bilan', en: 'Reports' }];
+/** Reached from the home screen and the space switcher; listed in the sidebar on a computer. */
+const MORE: { name: string; icon: IconName; fr: string; en: string }[] = [
+  { name: 'reports', icon: 'chart', fr: 'Bilan', en: 'Reports' },
+  { name: 'properties', icon: 'building', fr: 'Logements', en: 'Properties' },
+];
 const REPORTS = MORE[0];
 
 export default function TabsLayout() {
@@ -44,6 +50,7 @@ export default function TabsLayout() {
         <Tabs.Screen key={tab.name} name={tab.name} />
       ))}
       <Tabs.Screen name="reports" />
+      <Tabs.Screen name="properties" />
       {/* A property's page: part of "Places", not a destination of its own. */}
       <Tabs.Screen name="property" />
     </Tabs>
@@ -54,6 +61,8 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
   const t = useT();
   const insets = useSafeAreaInsets();
   const [adding, setAdding] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const space_ = useSelection().property;
   const hasProperty = useStore((s) => s.data.properties.some((p) => !p.archived));
   const demo = useStore((s) => s.backend.demo);
   const { owner, canEdit, sees } = useAccess();
@@ -63,7 +72,7 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
   // place of the property list, and adding only if allowed.
   const tabs = owner
     ? TABS
-    : [TABS[0], ...(sees('income') || sees('expenses') ? [TABS[1]] : []), ...(sees('invoices') ? [TABS[2]] : []), ...(sees('report') ? [REPORTS] : [])];
+    : [TABS[0], ...(sees('income') || sees('expenses') ? [TABS[1]] : []), ...(sees('income') ? [TABS[2]] : []), ...(sees('invoices') ? [TABS[3]] : []), ...(sees('report') ? [REPORTS] : [])];
   const more = owner ? MORE : [];
   const canAdd = canEdit && (owner || sees('income') || sees('expenses') || sees('invoices'));
 
@@ -102,14 +111,24 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
   }
 
   const sheet = (
-    <Sheet open={adding} onClose={() => setAdding(false)} title={t('Ajouter', 'Add')}>
+    <>
+    <Sheet open={switching} onClose={() => setSwitching(false)} title={t('Changer de logement', 'Switch property')}>
+      <PropertyMenu onChosen={() => setSwitching(false)} />
+    </Sheet>
+    <Sheet open={adding} onClose={() => setAdding(false)} title={space_ ? t(`Ajouter dans ${space_.name}`, `Add to ${space_.name}`) : t('Ajouter', 'Add')}>
       <View style={{ gap: 2 }}>
+        {owner && !space_ && hasProperty ? (
+          <T variant="small" color={color.inkSoft} style={{ marginBottom: space.sm }}>
+            {t('Tu es dans la vue d’ensemble : le formulaire te demandera le logement.', 'You are in the overview: the form will ask for the property.')}
+          </T>
+        ) : null}
         {sees('expenses') ? <AddOption icon="minus" tint={color.negative} bg={color.tintExpense} title={t('Une dépense', 'An expense')} text={t('Ménage, électricité, achat…', 'Cleaning, electricity, a purchase…')} onPress={() => open({ pathname: '/entry', params: { type: 'expense' } })} /> : null}
         {sees('income') ? <AddOption icon="plus" tint={color.positive} bg={color.tintIncome} title={t('Un revenu', 'Income')} text={t('Un versement Airbnb, Booking ou en direct', 'A payout from Airbnb, Booking or direct')} onPress={() => open({ pathname: '/entry', params: { type: 'booking' } })} /> : null}
         {owner ? <AddOption icon="camera" bg={color.tintOccupancy} title={t('Photographier un reçu', 'Photograph a receipt')} text={t('La dépense se remplit à partir de la photo', 'The expense is filled in from the photo')} onPress={() => void attach(takePhoto)} /> : null}
         {sees('invoices') ? <AddOption icon="file" bg={color.tintNight} title={t('Ranger une facture', 'File an invoice')} text={t('Seule, ou rattachée plus tard à une dépense', 'On its own, or linked to an expense later')} onPress={() => void fileInvoice()} /> : null}
       </View>
     </Sheet>
+    </>
   );
 
   if (wide) {
@@ -118,6 +137,11 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
         <View style={{ paddingHorizontal: 6, marginBottom: space.xl }}>
           <Logo size={26} />
         </View>
+        {hasProperty && owner ? (
+          <View style={{ marginBottom: space.md }}>
+            <SpaceCard compact onPress={() => setSwitching(true)} />
+          </View>
+        ) : null}
         {canAdd ? <Button icon="plus" label={t('Ajouter', 'Add')} onPress={add} /> : null}
         <View style={{ gap: 2, marginTop: canAdd ? space.xl : 0 }}>
           {[...tabs, ...more].map((item) => {
@@ -138,16 +162,7 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
             );
           })}
         </View>
-        {hasProperty && owner ? (
-          <ScrollView style={{ marginTop: space.xl, flex: 1 }}>
-            <T variant="small" color={color.inkFaint} style={{ paddingHorizontal: 10, marginBottom: 6 }}>
-              {t('Afficher', 'Show')}
-            </T>
-            <PropertyMenu compact />
-          </ScrollView>
-        ) : (
-          <View style={{ flex: 1 }} />
-        )}
+        <View style={{ flex: 1 }} />
         <View style={{ marginTop: space.md }}>
           <InstallBanner compact />
         </View>

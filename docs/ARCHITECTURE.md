@@ -100,6 +100,31 @@ A shared statement is built from an explicit allow-list of fields, then stored
 as a frozen snapshot with a random token. The reader opens `/s/<token>`; the
 server returns that snapshot and nothing else. See [SECURITY.md](SECURITY.md).
 
+## Spaces: one property at a time
+
+The app is always inside a space: one property, or the overview ("Tous les
+logements"). `propertyId` in the store is the space; it is remembered on the
+device (`space` preference) and opened again next time. With a single
+property, that property is the space.
+
+- `SpaceCard` (`src/features/PageHeader.tsx`) shows the space in the
+  property's colour at the top of every screen (sidebar on a computer, with a
+  name chip above each page title). Tapping it opens the switcher.
+- Forms take their property from `usePropertyChoice`: inside a space it is
+  locked to it (`PropertyField`, a coloured banner with "Changer"/"Déplacer");
+  in the overview there is no default when several properties exist, and the
+  form cannot be saved until one is picked. Never guess from the last entry.
+- The overview is for looking at totals; the switcher says so.
+
+## Calendar (`src/core/calendar.ts`)
+
+Stays only. A stay is a booking with arrival and departure; it is drawn from
+the middle of the arrival day to the middle of the departure day, in the
+platform's colour. `segments()` cuts stays to a row of days (a week, or a
+month in the overview timeline) and puts double bookings on extra lanes;
+`staysOf()` flags them (`clash`). Income without a departure date is listed
+apart, since it has no nights.
+
 ## Members (`src/core/member.ts`, `src/data/member.ts`)
 
 A member is someone the owner shares one property with through a personal

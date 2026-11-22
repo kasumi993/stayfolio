@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { type FormatOptions, formatMoney } from '@/core/money';
 import type { MemberPage, Party, Property } from '@/core/types';
-import { useData, useStore } from '@/data/store';
+import { useStore } from '@/data/store';
 import { useT } from '@/i18n';
 import { pigmentDot, pigmentOf } from '@/ui/theme';
 
@@ -33,25 +33,34 @@ export function usePartiesOf(propertyId: string | null | undefined): Party[] {
 }
 
 /** Which property a new entry goes to. Default: the one on screen, else the one used last. */
-export function usePropertyChoice(initial: string | null | undefined, allowNone: boolean) {
+export interface PropertyChoice {
+  propertyId: string | null;
+  setPropertyId: (id: string | null) => void;
+  options: { value: string | null; label: string; dot?: string }[];
+  /** False until a property (or "none") was picked: the form cannot be saved. */
+  chosen: boolean;
+  /** Shown as a fixed banner instead of a choice. */
+  locked: boolean;
+  unlock: () => void;
+}
+
+/**
+ * The property a form writes to. Inside a property's space it is that
+ * property, shown locked; in the overview there is no default when several
+ * properties exist, so an entry never lands in the wrong one by accident.
+ */
+export function usePropertyChoice(initial: string | null | undefined, allowNone: boolean): PropertyChoice {
   const t = useT();
   const { property, active } = useSelection();
-  const data = useData();
-  // Default: the property on screen, else the one used most recently.
-  const suggested = (): string | null => {
-    if (property) return property.id;
-    const rows = [...data.expenses, ...data.bookings].filter((r) => active.some((p) => p.id === r.property_id));
-    const latest = rows.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-    return latest?.property_id ?? active[0]?.id ?? null;
-  };
-  const [propertyId, setPropertyId] = useState<string | null>(initial !== undefined ? initial : suggested);
+  const start = initial !== undefined ? initial : property ? property.id : active.length === 1 && !allowNone ? active[0].id : undefined;
+  const [value, setValue] = useState<string | null | undefined>(start);
+  const [locked, setLocked] = useState(start !== undefined);
   const options = [
     ...active.map((p) => ({ value: p.id as string | null, label: p.name, dot: pigmentDot(p.color) })),
     ...(allowNone ? [{ value: null, label: t('Aucun (mon activité)', 'None (my business)') }] : []),
   ];
-  return { propertyId, setPropertyId, options };
+  return { propertyId: value ?? null, setPropertyId: setValue, options, chosen: value !== undefined, locked: locked && value !== undefined, unlock: () => setLocked(false) };
 }
-
 
 /**
  * What the person looking may do. The owner may do everything; someone who

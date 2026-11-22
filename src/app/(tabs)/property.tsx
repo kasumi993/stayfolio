@@ -37,7 +37,7 @@ export default function PropertyScreen() {
   // Through a member link this page shows the money side only, read-only.
   const { owner, isMe, sees } = useAccess();
 
-  const back = owner ? <TextLink label={t('Tous les biens', 'All properties')} onPress={() => router.navigate('/properties')} /> : <TextLink label={t('Accueil', 'Home')} onPress={() => router.navigate('/')} />;
+  const back = owner ? <TextLink label={t('Tous les logements', 'All properties')} onPress={() => router.navigate('/properties')} /> : <TextLink label={t('Accueil', 'Home')} onPress={() => router.navigate('/')} />;
   if (!property) {
     return (
       <Screen reading>

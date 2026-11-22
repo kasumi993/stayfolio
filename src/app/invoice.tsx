@@ -17,10 +17,11 @@ import { evalAmount } from '@/core/money';
 import type { Doc, Expense } from '@/core/types';
 import { useData, useStore } from '@/data/store';
 import { useAccess, useMoney, usePropertyChoice } from '@/features/hooks';
+import { PropertyField } from '@/features/PropertyField';
 import { peekPendingFile, setPendingFile } from '@/features/pendingFile';
 import { categoryLabel, dayLabel, useLocale, useT } from '@/i18n';
 import type { PickedFile } from '@/platform/pick';
-import { Button, Choice, ConfirmButton, Row, TextLink } from '@/ui/controls';
+import { Button, ConfirmButton, Row, TextLink } from '@/ui/controls';
 import { AmountField, DateFields, Field, Label } from '@/ui/fields';
 import { Icon } from '@/ui/Icon';
 import { Block, FormScreen } from '@/ui/layout';
@@ -39,7 +40,8 @@ export default function InvoiceScreen() {
   const [file] = useState<PickedFile | null>(() => (params.new === '1' ? peekPendingFile() : null));
   useEffect(() => () => setPendingFile(null), []);
 
-  const { propertyId, setPropertyId, options } = usePropertyChoice(existing ? existing.property_id : undefined, owner);
+  const place = usePropertyChoice(existing ? existing.property_id : undefined, owner);
+  const { propertyId } = place;
   const [title, setTitle] = useState(existing?.title ?? '');
   const [date, setDate] = useState(existing?.date ?? today());
   const [amount, setAmount] = useState(existing?.amount != null ? String(existing.amount) : '');
@@ -99,17 +101,12 @@ export default function InvoiceScreen() {
   return (
     <FormScreen
       title={existing ? t('Facture', 'Invoice') : t('Nouvelle facture', 'New invoice')}
-      footer={<Button label={t('Enregistrer', 'Save')} onPress={() => void submit()} busy={busy} />}>
+      footer={<Button label={t('Enregistrer', 'Save')} onPress={() => void submit()} busy={busy} disabled={!linked && !place.chosen} />}>
       <Preview doc={existing} file={file} />
 
       <Field label={t('Ce que c’est', 'What it is')} value={title} onChangeText={setTitle} placeholder={t('Facture Senelec, devis plombier…', 'Power bill, plumber quote…')} />
 
-      {linked ? null : (
-        <View>
-          <Label>{t('Bien', 'Property')}</Label>
-          <Choice value={propertyId} onChange={setPropertyId} options={options} />
-        </View>
-      )}
+      {linked ? null : <PropertyField choice={place} editing={!!existing} />}
 
       <DateFields items={[{ label: t('Date de la facture', 'Invoice date'), value: date, onChange: (d) => d && setDate(d) }]} />
       <View style={{ gap: space.xs }}>
