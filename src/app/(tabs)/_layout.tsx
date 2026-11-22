@@ -9,7 +9,9 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useStore } from '@/data/store';
+import { useAccess } from '@/features/hooks';
 import { InstallBanner } from '@/features/InstallBanner';
+import { MemberBar } from '@/features/MemberBar';
 import { PropertyMenu } from '@/features/PageHeader';
 import { setPendingFile } from '@/features/pendingFile';
 import { useT } from '@/i18n';
@@ -30,6 +32,7 @@ const TABS: { name: string; icon: IconName; fr: string; en: string }[] = [
 ];
 /** Reached from the home screen and the properties; listed in the sidebar on a computer. */
 const MORE: { name: string; icon: IconName; fr: string; en: string }[] = [{ name: 'reports', icon: 'chart', fr: 'Bilan', en: 'Reports' }];
+const REPORTS = MORE[0];
 
 export default function TabsLayout() {
   const wide = useWide();
@@ -53,8 +56,16 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
   const [adding, setAdding] = useState(false);
   const hasProperty = useStore((s) => s.data.properties.some((p) => !p.archived));
   const demo = useStore((s) => s.backend.demo);
+  const { owner, canEdit, sees } = useAccess();
   const routeName = state.routes[state.index]?.name;
   const current = routeName === 'property' ? 'properties' : routeName;
+  // Through a member link: only the pages the owner allowed, the report in
+  // place of the property list, and adding only if allowed.
+  const tabs = owner
+    ? TABS
+    : [TABS[0], ...(sees('income') || sees('expenses') ? [TABS[1]] : []), ...(sees('invoices') ? [TABS[2]] : []), ...(sees('report') ? [REPORTS] : [])];
+  const more = owner ? MORE : [];
+  const canAdd = canEdit && (owner || sees('income') || sees('expenses') || sees('invoices'));
 
   const goTo = (name: string) => {
     const route = state.routes.find((r) => r.name === name);
@@ -93,10 +104,10 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
   const sheet = (
     <Sheet open={adding} onClose={() => setAdding(false)} title={t('Ajouter', 'Add')}>
       <View style={{ gap: 2 }}>
-        <AddOption icon="minus" tint={color.negative} bg={color.tintExpense} title={t('Une dépense', 'An expense')} text={t('Ménage, électricité, achat…', 'Cleaning, electricity, a purchase…')} onPress={() => open({ pathname: '/entry', params: { type: 'expense' } })} />
-        <AddOption icon="plus" tint={color.positive} bg={color.tintIncome} title={t('Un revenu', 'Income')} text={t('Un versement Airbnb, Booking ou en direct', 'A payout from Airbnb, Booking or direct')} onPress={() => open({ pathname: '/entry', params: { type: 'booking' } })} />
-        <AddOption icon="camera" bg={color.tintOccupancy} title={t('Photographier un reçu', 'Photograph a receipt')} text={t('La dépense se remplit à partir de la photo', 'The expense is filled in from the photo')} onPress={() => void attach(takePhoto)} />
-        <AddOption icon="file" bg={color.tintNight} title={t('Ranger une facture', 'File an invoice')} text={t('Seule, ou rattachée plus tard à une dépense', 'On its own, or linked to an expense later')} onPress={() => void fileInvoice()} />
+        {sees('expenses') ? <AddOption icon="minus" tint={color.negative} bg={color.tintExpense} title={t('Une dépense', 'An expense')} text={t('Ménage, électricité, achat…', 'Cleaning, electricity, a purchase…')} onPress={() => open({ pathname: '/entry', params: { type: 'expense' } })} /> : null}
+        {sees('income') ? <AddOption icon="plus" tint={color.positive} bg={color.tintIncome} title={t('Un revenu', 'Income')} text={t('Un versement Airbnb, Booking ou en direct', 'A payout from Airbnb, Booking or direct')} onPress={() => open({ pathname: '/entry', params: { type: 'booking' } })} /> : null}
+        {owner ? <AddOption icon="camera" bg={color.tintOccupancy} title={t('Photographier un reçu', 'Photograph a receipt')} text={t('La dépense se remplit à partir de la photo', 'The expense is filled in from the photo')} onPress={() => void attach(takePhoto)} /> : null}
+        {sees('invoices') ? <AddOption icon="file" bg={color.tintNight} title={t('Ranger une facture', 'File an invoice')} text={t('Seule, ou rattachée plus tard à une dépense', 'On its own, or linked to an expense later')} onPress={() => void fileInvoice()} /> : null}
       </View>
     </Sheet>
   );
@@ -107,9 +118,9 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
         <View style={{ paddingHorizontal: 6, marginBottom: space.xl }}>
           <Logo size={26} />
         </View>
-        <Button icon="plus" label={t('Ajouter', 'Add')} onPress={add} />
-        <View style={{ gap: 2, marginTop: space.xl }}>
-          {[...TABS, ...MORE].map((item) => {
+        {canAdd ? <Button icon="plus" label={t('Ajouter', 'Add')} onPress={add} /> : null}
+        <View style={{ gap: 2, marginTop: canAdd ? space.xl : 0 }}>
+          {[...tabs, ...more].map((item) => {
             const active = current === item.name;
             return (
               <Pressable
@@ -127,7 +138,7 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
             );
           })}
         </View>
-        {hasProperty ? (
+        {hasProperty && owner ? (
           <ScrollView style={{ marginTop: space.xl, flex: 1 }}>
             <T variant="small" color={color.inkFaint} style={{ paddingHorizontal: 10, marginBottom: 6 }}>
               {t('Afficher', 'Show')}
@@ -140,6 +151,12 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
         <View style={{ marginTop: space.md }}>
           <InstallBanner compact />
         </View>
+        {owner ? null : (
+          <View style={{ marginTop: space.md }}>
+            <MemberBar compact />
+          </View>
+        )}
+        {owner ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: space.md }}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('Réglages', 'Settings')} onPress={() => router.push('/settings')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, height: 40, paddingHorizontal: 10, borderRadius: radius.md, backgroundColor: pressed ? color.line : 'transparent', flex: 1 })}>
             <Icon name="gear" size={19} color={color.inkSoft} />
@@ -149,6 +166,7 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
           </Pressable>
           {demo ? <Tag label={t('Démo', 'Demo')} /> : null}
         </View>
+        ) : null}
         {sheet}
       </View>
     );
@@ -169,10 +187,11 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
       <View pointerEvents="box-none" style={{ width: '100%', maxWidth, paddingHorizontal: space.md, paddingBottom: space.sm }}>
-        <InstallBanner />
+        {owner ? <InstallBanner /> : <MemberBar />}
       </View>
       <View style={{ width: '100%', maxWidth, flexDirection: 'row', alignItems: 'center', backgroundColor: color.paper, borderTopWidth: 1, borderColor: color.line, paddingTop: 6, paddingBottom: Math.max(insets.bottom, 8), paddingHorizontal: space.sm }}>
-        {TABS.slice(0, 2).map(tab)}
+        {tabs.slice(0, 2).map(tab)}
+        {canAdd ? (
         <View style={{ width: 72, alignItems: 'center' }}>
           <Pressable
             accessibilityRole="button"
@@ -182,7 +201,8 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
             <Icon name="plus" size={22} color={color.accentInk} weight={2.4} />
           </Pressable>
         </View>
-        {TABS.slice(2).map(tab)}
+        ) : null}
+        {tabs.slice(2).map(tab)}
       </View>
       {sheet}
     </View>

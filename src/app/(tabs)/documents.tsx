@@ -6,7 +6,7 @@ import { View } from 'react-native';
 import { base } from '@/core/calc';
 import type { Doc } from '@/core/types';
 import { useData, useStore } from '@/data/store';
-import { useMoney, useSelection } from '@/features/hooks';
+import { useAccess, useMoney, useSelection } from '@/features/hooks';
 import { PageHeader } from '@/features/PageHeader';
 import { setPendingFile } from '@/features/pendingFile';
 import { categoryLabel, dayLabel, monthLabel, useLocale, useT } from '@/i18n';
@@ -19,6 +19,7 @@ import { color, space } from '@/ui/theme';
 export default function DocumentsScreen() {
   const params = useLocalSearchParams<{ open?: string }>();
   const t = useT();
+  const { canEdit } = useAccess();
   const locale = useLocale();
   const money = useMoney();
   const data = useData();
@@ -61,10 +62,12 @@ export default function DocumentsScreen() {
   return (
     <Screen reading>
       <PageHeader title={t('Factures', 'Invoices')} subtitle={property ? property.name : t('Tous les biens', 'All properties')} />
-      <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.lg }}>
-        <Button compact icon="camera" label={t('Photographier', 'Take a photo')} onPress={() => void add(takePhoto)} style={{ flex: 1 }} />
-        <Button compact tone="quiet" icon="file" label={t('Ajouter un fichier', 'Add a file')} onPress={() => void add(pickDocument)} style={{ flex: 1 }} />
-      </View>
+      {canEdit ? (
+        <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.lg }}>
+          <Button compact icon="camera" label={t('Photographier', 'Take a photo')} onPress={() => void add(takePhoto)} style={{ flex: 1 }} />
+          <Button compact tone="quiet" icon="file" label={t('Ajouter un fichier', 'Add a file')} onPress={() => void add(pickDocument)} style={{ flex: 1 }} />
+        </View>
+      ) : null}
       <Choice
         value={filter}
         onChange={setFilter}

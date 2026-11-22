@@ -15,7 +15,7 @@ import { Sheet, useWide } from '@/ui/layout';
 import { T } from '@/ui/Text';
 import { color, pigmentDot, radius, space } from '@/ui/theme';
 
-import { useSelection } from './hooks';
+import { useAccess, useSelection } from './hooks';
 
 interface Stepper {
   onPrev: () => void;
@@ -29,13 +29,30 @@ export function PageHeader({ title, subtitle, stepper, action, filter = true }: 
   const wide = useWide();
   const demo = useStore((s) => s.backend.demo);
   const { property } = useSelection();
+  const { access } = useAccess();
   const [open, setOpen] = useState(false);
 
   return (
     <View style={{ marginBottom: space.xl }}>
       {!wide ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 40, marginBottom: space.md }}>
-          {filter ? (
+          {access ? (
+            // Through a member link: one property, and who shared it.
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
+              <Dot tint={pigmentDot(property?.color)} size={8} />
+              <View style={{ flexShrink: 1 }}>
+                <T variant="label" numberOfLines={1}>
+                  {property?.name ?? ''}
+                </T>
+                {access.ownerName && !access.preview ? (
+                  <T variant="small" color={color.inkSoft} numberOfLines={1}>
+                    {t(`Partagé par ${access.ownerName}`, `Shared by ${access.ownerName}`)}
+                    {access.canEdit ? '' : t(', en lecture', ', read only')}
+                  </T>
+                ) : null}
+              </View>
+            </View>
+          ) : filter ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('Changer de bien', 'Switch property')}
@@ -52,7 +69,11 @@ export function PageHeader({ title, subtitle, stepper, action, filter = true }: 
           )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs }}>
             {demo ? <Tag label={t('Démo', 'Demo')} /> : null}
-            <IconButton icon="gear" label={t('Réglages', 'Settings')} tint={color.inkSoft} onPress={() => router.push('/settings')} />
+            {access ? (
+              null
+            ) : (
+              <IconButton icon="gear" label={t('Réglages', 'Settings')} tint={color.inkSoft} onPress={() => router.push('/settings')} />
+            )}
           </View>
         </View>
       ) : null}

@@ -96,6 +96,10 @@ export function sampleData(): Data {
   );
   d.transfers.push({ id: newId(), property_id: studio.id, date: dateInMonth(months[0], 4), from_party: studio.other, to_party: null, amount: 400000, note: 'Apport de départ', created_at: created });
   d.transfers.push({ id: newId(), property_id: studio.id, date: dateInMonth(months[0], 1), from_party: studio.me, to_party: null, amount: 600000, note: 'Apport de départ', created_at: created });
+  d.members = [
+    { id: newId(), property_id: studio.id, name: 'Awa', email: '', token: 'demo' + '0'.repeat(44), can_edit: true, pages: ['income', 'expenses', 'invoices', 'report', 'cash'], monthly_report: false, last_seen_at: created, created_at: created },
+    { id: newId(), property_id: studio.id, name: 'Comptable', email: 'compta@exemple.com', token: 'demo' + '1'.repeat(44), can_edit: false, pages: ['expenses', 'invoices'], monthly_report: true, last_seen_at: null, created_at: created },
+  ];
   return d;
 }
 
@@ -138,7 +142,7 @@ export function createDemoBackend(): Backend {
       (data[table] as { id: string }[]) = tableOf(table).filter((r) => !ids.includes(r.id));
       // Mimic the database's cascades.
       if (table === 'properties') {
-        for (const t of ['parties', 'rules', 'bookings', 'expenses', 'recurring', 'transfers', 'docs', 'shares'] as const)
+        for (const t of ['parties', 'rules', 'bookings', 'expenses', 'recurring', 'transfers', 'docs', 'shares', 'members'] as const)
           (data[t] as { property_id: string | null }[]) = (data[t] as { property_id: string | null }[]).filter(
             (r) => !r.property_id || !ids.includes(r.property_id),
           );
@@ -154,6 +158,18 @@ export function createDemoBackend(): Backend {
     },
     fileUrl: async (path) => files.get(path) ?? '',
     removeFiles: async (paths) => paths.forEach((p) => files.delete(p)),
+
+    saveMember: async (member) => {
+      const old = data.members.find((m) => m.id === member.id);
+      const saved = { token: newId().replace(/-/g, '') + newId().replace(/-/g, '').slice(0, 16), last_seen_at: null, created_at: now(), ...old, ...member };
+      data.members = old ? data.members.map((m) => (m.id === member.id ? saved : m)) : [...data.members, saved];
+      return structuredCloneSafe(saved);
+    },
+    rotateMemberToken: async (id) => {
+      const token = newId().replace(/-/g, '') + newId().replace(/-/g, '').slice(0, 16);
+      data.members = data.members.map((m) => (m.id === id ? { ...m, token } : m));
+      return token;
+    },
 
     publishShare: async (share, payload) => {
       const link = { ...share, token: newId().replace(/-/g, ''), created_at: now(), revoked: false };

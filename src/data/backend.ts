@@ -6,7 +6,7 @@
  * automated UI tests). The rest of the app only knows this interface.
  */
 import type { SharedStatement } from '@/core/sharing';
-import type { Data, ID, Profile, ShareLink } from '@/core/types';
+import type { Data, ID, Member, MemberPage, Profile, ShareLink } from '@/core/types';
 
 export type Table =
   | 'properties'
@@ -17,7 +17,8 @@ export type Table =
   | 'recurring'
   | 'transfers'
   | 'docs'
-  | 'shares';
+  | 'shares'
+  | 'members';
 
 export interface Session {
   userId: string;
@@ -40,8 +41,21 @@ export interface ReceiptReading {
   description?: string;
 }
 
+/** Who is looking, when the app is opened through a member link. */
+export interface MemberAccess {
+  token: string;
+  name: string;
+  ownerName: string;
+  canEdit: boolean;
+  pages: MemberPage[];
+  /** The owner looking at their own member's view, from the property page. */
+  preview: boolean;
+}
+
 export interface Backend {
   readonly demo: boolean;
+  /** Set when the data comes through a member link. */
+  readonly access?: MemberAccess;
 
   getSession(): Promise<Session | null>;
   onAuthChange(listener: (session: Session | null) => void): () => void;
@@ -70,6 +84,11 @@ export interface Backend {
   /** A temporary link to view a stored file. */
   fileUrl(path: string): Promise<string>;
   removeFiles(paths: string[]): Promise<void>;
+
+  /** Creates or updates a member; returns it with its link token. */
+  saveMember(member: Omit<Member, 'token' | 'last_seen_at' | 'created_at'>): Promise<Member>;
+  /** A new link for a member. The old one stops working at once. */
+  rotateMemberToken(id: ID): Promise<string>;
 
   publishShare(share: Omit<ShareLink, 'token' | 'created_at' | 'revoked'>, payload: SharedStatement): Promise<ShareLink>;
   /** Makes published links unreadable. The snapshots are kept, flagged revoked. */

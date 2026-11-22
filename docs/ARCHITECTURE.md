@@ -100,6 +100,27 @@ A shared statement is built from an explicit allow-list of fields, then stored
 as a frozen snapshot with a random token. The reader opens `/s/<token>`; the
 server returns that snapshot and nothing else. See [SECURITY.md](SECURITY.md).
 
+## Members (`src/core/member.ts`, `src/data/member.ts`)
+
+A member is someone the owner shares one property with through a personal
+link `/m/<token>`, like a Canva link: no account, no password. The owner picks
+"Voir" or "Modifier", the pages (income, expenses, invoices, report, cash) and
+whether they get the monthly report (recipients are stored; sending waits for
+an email service).
+
+- The member's app runs on `createMemberBackend(token)`: it implements the same
+  `Backend` interface as Supabase and the demo, so screens do not change.
+  Reads go to `member_load`, writes to `member_save` / `member_delete`, files
+  to the `member-files` edge function.
+- The owner's party keeps `is_me` in a member's data so the figures add up the
+  same as for the owner; screens use `useAccess().isMe(party)` to label it by
+  name instead of "Moi" when a member looks.
+- `useAccess()` (`src/features/hooks.ts`) decides what to show: tabs, add
+  buttons, read-only details, owner-only screens (blocked in the root guard).
+  The server enforces the same rules; the UI only hides what would be refused.
+- "Voir comme cette personne" runs `createPreviewBackend`: the owner's data
+  filtered by `memberView`, the device-side twin of `member_load`, read-only.
+
 ## AI (`supabase/functions/ai`)
 
 Optional, and only where it saves real effort:

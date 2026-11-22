@@ -10,7 +10,7 @@ import { occupancy, series, statement } from '@/core/calc';
 import { currentMonth, monthsOfYear, yearOf } from '@/core/dates';
 import { AiUnavailable } from '@/data/backend';
 import { useData, useStore } from '@/data/store';
-import { useMoney, useSelection } from '@/features/hooks';
+import { useAccess, useMoney, useSelection } from '@/features/hooks';
 import { PageHeader } from '@/features/PageHeader';
 import { categoryLabel, monthLabel, monthShort, useLocale, useT } from '@/i18n';
 import { Bars, Breakdown, Legend, Ring, Tile, Tiles, Trend } from '@/ui/charts';
@@ -31,6 +31,7 @@ export default function ReportsScreen() {
   const month = useStore((s) => s.month);
   const { setMonth } = useStore.getState();
   const [year, setYear] = useState(yearOf(month));
+  const { owner } = useAccess();
 
   const id = property?.id ?? null;
   const points = useMemo(() => series(data, id, monthsOfYear(year)), [data, id, year]);
@@ -54,7 +55,7 @@ export default function ReportsScreen() {
         <>
           <Tiles wide={wide}>
             {[
-              <Tile key="res" label={property ? t('Résultat', 'Result') : t('Pour moi', 'For me')} value={money(result, { sign: true })} note={property && total.parties.length > 1 ? t(`pour moi ${money(total.mine, { sign: true })}`, `for me ${money(total.mine, { sign: true })}`) : undefined} tint={result < 0 ? color.tintExpense : color.tintIncome} />,
+              <Tile key="res" label={property ? t('Résultat', 'Result') : t('Pour moi', 'For me')} value={money(result, { sign: true })} note={owner && property && total.parties.length > 1 ? t(`pour moi ${money(total.mine, { sign: true })}`, `for me ${money(total.mine, { sign: true })}`) : undefined} tint={result < 0 ? color.tintExpense : color.tintIncome} />,
               <Tile key="in" label={t('Revenus', 'Income')} value={money(total.revenue)} note={t(`${total.bookings.length} versements`, `${total.bookings.length} payouts`)} tint={color.tintIncome} />,
               <Tile key="out" label={t('Dépenses', 'Expenses')} value={money(total.expenses)} tint={color.tintExpense} />,
               <Tile key="occ" label={t('Occupation', 'Occupancy')} value={`${Math.round(occ.rate * 100)} %`} note={t(`${occ.booked} nuits louées`, `${occ.booked} nights booked`)} tint={color.tintOccupancy} aside={<Ring value={occ.rate} size={44} stroke={6} />} />,
@@ -124,7 +125,7 @@ export default function ReportsScreen() {
           </Cols>
 
           <View style={{ maxWidth: 720 }}>
-            <Ask year={year} />
+            {owner ? <Ask year={year} /> : null}
           </View>
         </>
       ) : (

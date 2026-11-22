@@ -16,6 +16,8 @@ import { color, isDark, maxWidth, radius, space } from '@/ui/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+const OWNER_ONLY = new Set(['welcome', 'recurring', 'transfer', 'rules', 'share', 'import', 'settings', 'property-form', 'properties', 'member']);
+
 export default function RootLayout() {
   const [fontsReady] = useFonts({
     PlusJakartaSans_400Regular,
@@ -48,8 +50,12 @@ function Screens() {
   // itself is protected server-side; this only decides which screen to show.
   const segments = useSegments();
   const area = segments[0] as string | undefined;
-  const isPublic = area === 's' || area === 'reset' || area === 'privacy';
-  const misplaced = !isPublic && (signedIn ? area === 'welcome' : area !== 'welcome');
+  const isPublic = area === 's' || area === 'reset' || area === 'privacy' || area === 'm';
+  // Through a member link, the owner's own screens are out of reach (the
+  // server refuses those actions anyway).
+  const member = useStore((s) => !!s.backend.access);
+  const ownerOnly = member && OWNER_ONLY.has(segments[segments.length - 1] as string);
+  const misplaced = ownerOnly || (!isPublic && (signedIn ? area === 'welcome' : area !== 'welcome'));
   useEffect(() => {
     if (misplaced) router.replace(signedIn ? '/' : '/welcome');
   }, [misplaced, signedIn]);
@@ -74,8 +80,10 @@ function Screens() {
         <Stack.Screen name="import" options={modal} />
         <Stack.Screen name="settings" options={modal} />
         <Stack.Screen name="property-form" options={modal} />
+        <Stack.Screen name="member" options={modal} />
         {/* Open to anyone holding the link or the reset email. */}
         <Stack.Screen name="s/[token]" />
+        <Stack.Screen name="m/[token]" options={{ animation: 'none' }} />
         <Stack.Screen name="reset" />
         <Stack.Screen name="privacy" />
       </Stack>

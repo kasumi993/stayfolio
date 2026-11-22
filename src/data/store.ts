@@ -13,12 +13,13 @@ import type { ImportPlan } from '@/core/importWorkbook';
 import { newId, now } from '@/core/id';
 import { dueOccurrences } from '@/core/recurring';
 import type { SharedStatement } from '@/core/sharing';
-import { type Data, type Doc, type ID, type Month, type Profile, type ShareLink, emptyData } from '@/core/types';
+import { type Data, type Doc, type ID, type Member, type Month, type Profile, type ShareLink, emptyData } from '@/core/types';
 import { getPref, setPref } from '@/platform/prefs';
 import { type ThemeName, applyTheme, defaultTheme, isThemeName } from '@/ui/theme';
 
 import type { Backend, Session, Table } from './backend';
 import { createDemoBackend } from './demo';
+import { LinkRevoked, createMemberBackend, createPreviewBackend } from './member';
 import { cloudConfigured, createSupabaseBackend } from './supabase';
 
 type Status = 'starting' | 'signedOut' | 'loading' | 'ready';
@@ -36,6 +37,8 @@ interface Store {
   error: string | null;
   /** Colour theme, remembered on this device. */
   theme: ThemeName;
+  /** The member link that was opened no longer works (renewed or cut). */
+  linkRevoked: boolean;
 
   start(): Promise<void>;
   enterDemo(): Promise<void>;
@@ -53,6 +56,15 @@ interface Store {
   saveProfile(profile: Profile): Promise<void>;
   addDoc(file: { bytes: Uint8Array; mime: string; name: string }, link: Partial<Pick<Doc, 'property_id' | 'expense_id' | 'booking_id' | 'title' | 'date' | 'amount'>>): Promise<Doc>;
   removeDoc(doc: Doc): Promise<void>;
+
+  /** Opens the app through a member link: one property, what the owner allowed. */
+  startMember(token: string): Promise<void>;
+  /** The owner looks at what one of her members sees. */
+  previewMember(member: Member): Promise<void>;
+  /** Back to the owner's own view, or out of a member link. */
+  leaveMember(): Promise<void>;
+  saveMember(member: Omit<Member, 'token' | 'last_seen_at' | 'created_at'>): Promise<Member>;
+  rotateMember(id: ID): Promise<void>;
   applyImport(plan: ImportPlan): Promise<void>;
   publish(share: Pick<ShareLink, 'property_id' | 'party_id' | 'title'>, payload: SharedStatement): Promise<ShareLink>;
   /** Withdraws published links: their statements can no longer be read. */
@@ -67,6 +79,13 @@ const initialTheme: ThemeName = isThemeName(savedTheme) ? savedTheme : defaultTh
 applyTheme(initialTheme);
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** The member link this device last opened, so the installed app reopens on it. */
+const MEMBER_PREF = 'member';
+
+/** The owner's backend while she previews a member's view. */
+let ownerBackend: Backend | null = null;
+let ownerProperty: ID | null = null;
 
 export const useStore = create<Store>((set, get) => {
   /** Applies a change locally, then remotely; undoes it if the server fails. */
@@ -86,11 +105,16 @@ export const useStore = create<Store>((set, get) => {
     if (get().status !== 'ready') set({ status: 'loading' });
     try {
       const data = await get().backend.load();
+      // Through a member link there is one property, always selected.
+      const only = get().backend.access ? (data.properties[0]?.id ?? null) : null;
       const keep = data.properties.some((p) => p.id === get().propertyId);
-      set({ data, status: 'ready', propertyId: keep ? get().propertyId : null });
-      await get().syncRecurring();
+      set({ data, status: 'ready', propertyId: only ?? (keep ? get().propertyId : null) });
+      if (!get().backend.access) await get().syncRecurring();
     } catch (e) {
-      set({ status: 'ready', error: message(e) });
+      if (e instanceof LinkRevoked) {
+        setPref(MEMBER_PREF, '');
+        set({ status: 'signedOut', linkRevoked: true, backend: cloud ?? createDemoBackend(), data: emptyData() });
+      } else set({ status: 'ready', error: message(e) });
     }
   }
 
@@ -103,6 +127,7 @@ export const useStore = create<Store>((set, get) => {
     month: currentMonth(),
     error: null,
     theme: initialTheme,
+    linkRevoked: false,
 
     async start() {
       if (!cloud) return set({ status: 'signedOut' });
@@ -110,7 +135,7 @@ export const useStore = create<Store>((set, get) => {
       // the initial check below or the auth listener.
       let loadedFor: string | null = null;
       const onSession = (session: Session | null) => {
-        if (get().backend.demo) return;
+        if (get().backend.demo || get().backend.access) return;
         set({ session });
         if (!session) {
           loadedFor = null;
@@ -122,7 +147,12 @@ export const useStore = create<Store>((set, get) => {
         }
       };
       cloud.onAuthChange(onSession);
-      onSession(await cloud.getSession().catch(() => null));
+      const session = await cloud.getSession().catch(() => null);
+      // A device that opened a member link and has no account reopens on it.
+      const link = getPref(MEMBER_PREF);
+      const opening = typeof location !== 'undefined' && location.pathname.startsWith('/m/');
+      if (!session && link && !opening && !get().backend.access) return get().startMember(link);
+      onSession(session);
     },
 
     async enterDemo() {
@@ -208,6 +238,52 @@ export const useStore = create<Store>((set, get) => {
       }
       await get().save('docs', doc);
       return doc;
+    },
+
+    async startMember(token) {
+      if (get().backend.access?.token === token && get().status === 'ready') return;
+      setPref(MEMBER_PREF, token);
+      set({ backend: createMemberBackend(token), session: null, data: emptyData(), propertyId: null, linkRevoked: false, status: 'loading', month: currentMonth() });
+      await load();
+    },
+
+    async previewMember(member) {
+      const owner = get().backend;
+      ownerBackend = owner;
+      ownerProperty = get().propertyId;
+      set({ backend: createPreviewBackend(owner, get().data, member) });
+      await load();
+    },
+
+    async leaveMember() {
+      const access = get().backend.access;
+      if (!access) return;
+      if (access.preview && ownerBackend) {
+        set({ backend: ownerBackend, propertyId: ownerProperty });
+        ownerBackend = null;
+        await load();
+        return;
+      }
+      setPref(MEMBER_PREF, '');
+      set({ backend: cloud ?? createDemoBackend(), session: null, data: emptyData(), status: 'signedOut', propertyId: null });
+      if (cloud) {
+        const session = await cloud.getSession().catch(() => null);
+        if (session) {
+          set({ session });
+          await load();
+        }
+      }
+    },
+
+    async saveMember(member) {
+      const saved = await get().backend.saveMember(member);
+      set((s) => ({ data: { ...s.data, members: [...s.data.members.filter((m) => m.id !== saved.id), saved] } }));
+      return saved;
+    },
+
+    async rotateMember(id) {
+      const token = await get().backend.rotateMemberToken(id);
+      set((s) => ({ data: { ...s.data, members: s.data.members.map((m) => (m.id === id ? { ...m, token } : m)) } }));
     },
 
     async removeDoc(doc) {

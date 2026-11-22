@@ -14,7 +14,7 @@ import { evalAmount, formatNumber, formatPercent } from '@/core/money';
 import { type Booking, CATEGORIES, type Doc, type Expense, PLATFORMS } from '@/core/types';
 import { AiUnavailable } from '@/data/backend';
 import { useData, useStore } from '@/data/store';
-import { usePartiesOf, usePropertyChoice } from '@/features/hooks';
+import { useAccess, useMoney, usePartiesOf, usePropertyChoice } from '@/features/hooks';
 import { peekPendingFile, setPendingFile } from '@/features/pendingFile';
 import { categoryLabel, dayLabel, monthLabel, useLocale, useT } from '@/i18n';
 import { type PickedFile, pickDocument, pickPhoto, takePhoto } from '@/platform/pick';
@@ -29,6 +29,9 @@ const CURRENCIES = ['XOF', 'EUR', 'USD'];
 
 export default function EntryScreen() {
   const params = useLocalSearchParams<{ type?: string; id?: string; scan?: string }>();
+  const { canEdit } = useAccess();
+  // Someone with a view-only member link reads the entry instead of a form.
+  if (!canEdit) return <EntryDetails kind={params.type === 'booking' ? 'booking' : 'expense'} id={params.id} />;
   return params.type === 'booking' ? <BookingForm id={params.id} /> : <ExpenseForm id={params.id} scan={params.scan === '1'} />;
 }
 
@@ -47,6 +50,7 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
   const locale = useLocale();
   const data = useData();
   const { save, remove, addDoc, backend } = useStore.getState();
+  const { owner, sees, isMe } = useAccess();
   const existing = data.expenses.find((x) => x.id === id);
   const profile = data.profile;
 
@@ -62,7 +66,7 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
   const [excluded, setExcluded] = useState(existing?.excluded ?? false);
   const [more, setMore] = useState(existing ? existing.scope !== 'property' || existing.charged_to !== null : false);
   const [busy, setBusy] = useState(false);
-  const { propertyId, setPropertyId, options } = usePropertyChoice(existing ? existing.property_id : undefined, true);
+  const { propertyId, setPropertyId, options } = usePropertyChoice(existing ? existing.property_id : undefined, owner);
   const { rate, custom, setCustom, fallback, foreign } = useRate(currency, existing?.fx_rate);
   const parties = usePartiesOf(propertyId);
   const docs = data.docs.filter((d) => existing && d.expense_id === existing.id);
@@ -159,8 +163,8 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
   async function destroy() {
     if (!existing) return;
     setBusy(true);
-    // Its invoices stay filed, on their own.
-    for (const d of docs) await save('docs', { ...d, expense_id: null });
+    // Its invoices stay filed, on their own (for a member, the server unlinks them).
+    if (owner) for (const d of docs) await save('docs', { ...d, expense_id: null });
     await remove('expenses', existing.id);
     router.back();
   }
@@ -200,6 +204,7 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
       <Field label={t('Fournisseur', 'Vendor')} value={vendor} onChangeText={setVendor} suggestions={vendors} placeholder="Woyofal, Orange, Diarra…" />
       <Field label={t('Description', 'Description')} value={description} onChangeText={setDescription} multiline />
 
+      {sees('invoices') ? (
       <View>
         <Label>{t('Justificatif', 'Receipt')}</Label>
         {docs.map((d) => (
@@ -253,6 +258,7 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
           )
         ) : null}
       </View>
+      ) : null}
 
       {propertyId ? (
         <>
@@ -269,21 +275,21 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
                   }}
                   options={[
                     { value: 'split', label: t('Selon les règles du bien', 'Per the property rules') },
-                    ...parties.map((p) => ({ value: p.id, label: p.is_me ? t('Moi seule', 'Me only') : t(`${p.name} seul·e`, `${p.name} only`) })),
+                    ...parties.map((p) => ({ value: p.id, label: isMe(p) ? t('Moi seule', 'Me only') : t(`${p.name} seul·e`, `${p.name} only`) })),
                     ...(managed ? [] : [{ value: 'setup', label: t('Mise en place', 'Set-up cost') }]),
-                    { value: 'private', label: t('Privée (mes frais)', 'Private (my costs)') },
+                    ...(owner ? [{ value: 'private', label: t('Privée (mes frais)', 'Private (my costs)') }] : []),
                   ]}
                 />
                 <T variant="small" color={color.inkSoft} style={{ marginTop: 6 }}>
                   {effectiveScope === 'setup'
                     ? t('Une dépense de mise en place est payée par les apports de départ : elle ne compte ni dans le résultat du mois ni dans le bénéfice à partager, seulement dans ce qu’il reste à récupérer.', 'A set-up cost is paid out of the initial contributions: it counts neither in the month’s result nor in the profit to share, only in what is left to recover.')
-                    : t('Une dépense privée compte dans ma rentabilité, jamais dans les comptes du bien ni dans un relevé partagé.', 'A private expense counts in my own profitability, never in the property books or a shared statement.')}
+                    : owner ? t('Une dépense privée compte dans ma rentabilité, jamais dans les comptes du bien ni dans un relevé partagé.', 'A private expense counts in my own profitability, never in the property books or a shared statement.') : ''}
                 </T>
               </View>
               {parties.length > 1 ? (
                 <View>
                   <Label>{t('Payée par', 'Paid by')}</Label>
-                  <Choice value={paidBy} onChange={setPaidBy} options={parties.map((p) => ({ value: p.is_me ? null : p.id, label: p.is_me ? t('Moi', 'Me') : p.name }))} />
+                  <Choice value={paidBy} onChange={setPaidBy} options={parties.map((p) => ({ value: p.is_me ? null : p.id, label: isMe(p) ? t('Moi', 'Me') : p.name }))} />
                 </View>
               ) : null}
             </>
@@ -300,6 +306,7 @@ function BookingForm({ id }: { id?: string }) {
   const t = useT();
   const data = useData();
   const { save, remove } = useStore.getState();
+  const { owner, isMe } = useAccess();
   const existing = data.bookings.find((b) => b.id === id);
   const profile = data.profile;
 
@@ -391,23 +398,23 @@ function BookingForm({ id }: { id?: string }) {
       <Field label={t('Voyageur', 'Guest')} value={guest} onChangeText={setGuest} />
       <Field label={t('Notes', 'Notes')} value={notes} onChangeText={setNotes} multiline />
 
-      <TextLink label={more ? t('Masquer les options', 'Hide options') : t('Commission et encaissement', 'Commission and collection')} onPress={() => setMore(!more)} />
+      {owner || parties.length > 1 ? <TextLink label={more ? t('Masquer les options', 'Hide options') : owner ? t('Commission et encaissement', 'Commission and collection') : t('Encaissement', 'Collection')} onPress={() => setMore(!more)} /> : null}
       {more ? (
         <>
-          <Field
+          {owner ? <Field
             label={t('Ma commission sur ce revenu (%)', 'My commission on this income (%)')}
             value={commission}
             onChangeText={setCommission}
             keyboardType="numbers-and-punctuation"
             placeholder={t(`Règle du bien : ${formatPercent(rule?.commission_rate ?? 0)}`, `Property rule: ${formatPercent(rule?.commission_rate ?? 0)}`)}
-          />
+          /> : null}
           {parties.length > 1 ? (
             <View>
               <Label>{t('Encaissé par', 'Collected by')}</Label>
               <Choice
                 value={receivedBy}
                 onChange={setReceivedBy}
-                options={[{ value: null as string | null, label: t('Selon le bien', 'Per the property') }, ...parties.map((p) => ({ value: p.id as string | null, label: p.is_me ? t('Moi', 'Me') : p.name }))]}
+                options={[{ value: null as string | null, label: t('Selon le bien', 'Per the property') }, ...parties.map((p) => ({ value: p.id as string | null, label: isMe(p) ? t('Moi', 'Me') : p.name }))]}
               />
             </View>
           ) : null}
@@ -440,6 +447,69 @@ function DocLine({ doc, onRemove }: { doc: Doc; onRemove: () => void }) {
         </T>
       </Pressable>
       <TextLink label={t('Détacher', 'Unlink')} onPress={onRemove} />
+    </View>
+  );
+}
+
+/** An entry as a view-only member sees it. */
+function EntryDetails({ kind, id }: { kind: 'booking' | 'expense'; id?: string }) {
+  const t = useT();
+  const locale = useLocale();
+  const money = useMoney();
+  const data = useData();
+  const { sees } = useAccess();
+  const nameOf = (pid: string | null) => data.parties.find((p) => p.id === pid)?.name ?? '';
+  const amount = (row: { amount: number; currency: string; fx_rate: number }) =>
+    row.currency === data.profile.currency ? money(row.amount) : `${formatNumber(row.amount)} ${row.currency} (${money(row.amount * row.fx_rate)})`;
+
+  if (kind === 'booking') {
+    const b = data.bookings.find((x) => x.id === id);
+    if (!b) return <FormScreen title={t('Revenu', 'Income')}><T color={color.inkSoft}>{t('Ce revenu n’existe plus.', 'This income no longer exists.')}</T></FormScreen>;
+    const nights = b.check_out ? diffDays(b.check_in, b.check_out) : 0;
+    return (
+      <FormScreen title={t('Revenu', 'Income')}>
+        <T variant="hero" tabular color={color.positive}>{amount(b)}</T>
+        <Detail label={t('Plateforme', 'Platform')} value={b.platform} />
+        <Detail label={t('Séjour', 'Stay')} value={[dayLabel(b.check_in, locale), b.check_out ? dayLabel(b.check_out, locale) : null].filter(Boolean).join(' → ') + (nights ? t(`, ${nights} nuit${nights > 1 ? 's' : ''}`, `, ${nights} night${nights > 1 ? 's' : ''}`) : '')} />
+        {b.received_on ? <Detail label={t('Versement reçu le', 'Payout received on')} value={dayLabel(b.received_on, locale)} /> : null}
+        {b.guest ? <Detail label={t('Voyageur', 'Guest')} value={b.guest} /> : null}
+        {b.received_by ? <Detail label={t('Encaissé par', 'Collected by')} value={nameOf(b.received_by)} /> : null}
+        {b.notes ? <Detail label={t('Notes', 'Notes')} value={b.notes} /> : null}
+      </FormScreen>
+    );
+  }
+  const x = data.expenses.find((e) => e.id === id);
+  if (!x) return <FormScreen title={t('Dépense', 'Expense')}><T color={color.inkSoft}>{t('Cette dépense n’existe plus.', 'This expense no longer exists.')}</T></FormScreen>;
+  const docs = sees('invoices') ? data.docs.filter((d) => d.expense_id === x.id) : [];
+  return (
+    <FormScreen title={t('Dépense', 'Expense')}>
+      <T variant="hero" tabular color={color.negative}>{amount(x)}</T>
+      <Detail label={t('Catégorie', 'Category')} value={categoryLabel(x.category, locale)} />
+      <Detail label={t('Date', 'Date')} value={dayLabel(x.date, locale) + ' ' + x.date.slice(0, 4)} />
+      {x.vendor ? <Detail label={t('Fournisseur', 'Vendor')} value={x.vendor} /> : null}
+      {x.description ? <Detail label={t('Description', 'Description')} value={x.description} /> : null}
+      {x.scope === 'setup' ? <Detail label={t('Type', 'Type')} value={t('Mise en place', 'Set-up cost')} /> : null}
+      {x.paid_by ? <Detail label={t('Payée par', 'Paid by')} value={nameOf(x.paid_by)} /> : null}
+      {docs.length ? (
+        <View>
+          <Label>{t('Justificatif', 'Receipt')}</Label>
+          {docs.map((d) => (
+            <Pressable key={d.id} accessibilityRole="button" onPress={() => router.push({ pathname: '/invoice', params: { id: d.id } })} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, borderWidth: 1, borderColor: color.line, borderRadius: radius.md, padding: space.md, marginBottom: space.sm }}>
+              <Icon name={d.mime === 'application/pdf' ? 'file' : 'image'} color={color.inkSoft} />
+              <T variant="label" style={{ flex: 1 }} numberOfLines={1}>{d.title || d.name || t('Justificatif', 'Receipt')}</T>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </FormScreen>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ borderBottomWidth: 1, borderBottomColor: color.line, paddingBottom: space.sm }}>
+      <T variant="small" color={color.inkSoft}>{label}</T>
+      <T variant="bodyMedium">{value}</T>
     </View>
   );
 }

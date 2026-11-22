@@ -12,7 +12,7 @@ import { type Insight, insightsFor } from '@/core/insights';
 import type { Property } from '@/core/types';
 import { useData, useStore } from '@/data/store';
 import { BookingRow, ExpenseRow } from '@/features/EntryRows';
-import { useMoney, useSelection } from '@/features/hooks';
+import { useAccess, useMoney, useSelection } from '@/features/hooks';
 import { PageHeader } from '@/features/PageHeader';
 import { type Translate, categoryLabel, dayLabel, monthLabel, monthShort, shareLabel, useLocale, useT } from '@/i18n';
 import { Bars, Breakdown, Legend, Progress, Ring, Tile, Tiles } from '@/ui/charts';
@@ -32,7 +32,10 @@ export default function MonthScreen() {
   const month = useStore((s) => s.month);
   const setMonth = useStore((s) => s.setMonth);
   const { property, active } = useSelection();
+  const { owner, canEdit, sees } = useAccess();
   const id = property?.id ?? null;
+  // Through a member link, the figures need the "report" page.
+  const figures = sees('report');
 
   const s = useMemo(() => monthStatement(data, id, month), [data, id, month]);
   const occ = useMemo(() => occupancy(data, id, [month]), [data, id, month]);
@@ -57,8 +60,8 @@ export default function MonthScreen() {
   }
 
   const latest = [
-    ...data.bookings.filter((b) => !id || b.property_id === id).map((b) => ({ kind: 'booking' as const, row: b, at: b.created_at, day: b.check_in })),
-    ...data.expenses.filter((x) => !x.excluded && (!id || x.property_id === id)).map((x) => ({ kind: 'expense' as const, row: x, at: x.created_at, day: x.date })),
+    ...data.bookings.filter((b) => sees('income') && (!id || b.property_id === id)).map((b) => ({ kind: 'booking' as const, row: b, at: b.created_at, day: b.check_in })),
+    ...data.expenses.filter((x) => sees('expenses') && !x.excluded && (!id || x.property_id === id)).map((x) => ({ kind: 'expense' as const, row: x, at: x.created_at, day: x.date })),
   ]
     // Last recorded first; entries recorded together (an import) by their own date.
     .sort((a, b) => b.at.slice(0, 16).localeCompare(a.at.slice(0, 16)) || b.day.localeCompare(a.day))
@@ -69,14 +72,14 @@ export default function MonthScreen() {
       <PageHeader title={monthLabel(month, locale)} stepper={{ onPrev: () => setMonth(addMonths(month, -1)), onNext: () => setMonth(addMonths(month, 1)), onReset: () => setMonth(currentMonth()) }} />
 
       <Cols ratio={[2, 3]} gap={space.xl}>
-        <Summary s={s} property={property} />
+        {figures ? <Summary s={s} property={property} /> : <MemberIntro />}
         <View style={{ marginTop: wide ? 0 : space.xl, gap: space.md }}>
-          <QuickAdd />
+          {canEdit ? <QuickAdd /> : null}
           <Tiles wide={false}>
             {[
-              <Tile key="in" label={t('Revenus', 'Income')} value={money(s.revenue)} note={t(`${bookings.length} versement${bookings.length > 1 ? 's' : ''}`, `${bookings.length} payout${bookings.length > 1 ? 's' : ''}`)} tint={color.tintIncome} />,
-              <Tile key="out" label={t('Dépenses', 'Expenses')} value={money(s.expenses)} note={s.rent ? t(`dont loyer ${money(s.rent)}`, `incl. rent ${money(s.rent)}`) : undefined} tint={color.tintExpense} />,
-              <Tile
+              !sees('income') ? null : <Tile key="in" label={t('Revenus', 'Income')} value={money(s.revenue)} note={t(`${bookings.length} versement${bookings.length > 1 ? 's' : ''}`, `${bookings.length} payout${bookings.length > 1 ? 's' : ''}`)} tint={color.tintIncome} />,
+              !sees('expenses') ? null : <Tile key="out" label={t('Dépenses', 'Expenses')} value={money(s.expenses)} note={s.rent ? t(`dont loyer ${money(s.rent)}`, `incl. rent ${money(s.rent)}`) : undefined} tint={color.tintExpense} />,
+              !sees('income') ? null : <Tile
                 key="occ"
                 label={t('Occupation', 'Occupancy')}
                 value={`${Math.round(occ.rate * 100)} %`}
@@ -84,17 +87,20 @@ export default function MonthScreen() {
                 tint={color.tintOccupancy}
                 aside={<Ring value={occ.rate} size={44} stroke={6} />}
               />,
-              property ? (
+              !figures ? null : property ? (
                 <Tile key="night" label={t('Revenu par nuit', 'Income per night')} value={s.avgPerNight ? money(s.avgPerNight) : '—'} note={s.breakEvenPerNight ? t(`équilibre à ${money(s.breakEvenPerNight)}`, `break-even at ${money(s.breakEvenPerNight)}`) : undefined} tint={color.tintNight} />
               ) : (
                 <Tile key="fee" label={t('Mes commissions', 'My commissions')} value={money(s.commission)} tint={color.tintNight} />
               ),
-            ]}
+            ].filter((x) => x !== null)}
           </Tiles>
+          {!owner && property && sees('cash') ? (
+            <Button compact tone="quiet" icon="users" label={t('Caisse et apports', 'Cash and contributions')} onPress={() => router.push({ pathname: '/property', params: { id: property.id } })} />
+          ) : null}
         </View>
       </Cols>
 
-      {insights.length ? (
+      {figures && insights.length ? (
         <View style={{ gap: space.sm, marginTop: space.xl }}>
           {insights.map((ins, i) => (
             <Notice key={i} icon={ins.kind === 'rent_gap' ? 'month' : ins.kind === 'spike' ? 'chart' : 'alert'} text={capitalize(insightText(ins, byId.get(ins.property_id), !property, money, locale, t))} />
@@ -104,7 +110,7 @@ export default function MonthScreen() {
 
       <Cols ratio={[3, 2]}>
         <View>
-          <SectionTitle action={<TextLink label={t('Tout voir', 'See all')} onPress={() => router.push('/entries')} />}>{t('Dernières saisies', 'Latest entries')}</SectionTitle>
+          <SectionTitle action={sees('income') || sees('expenses') ? <TextLink label={t('Tout voir', 'See all')} onPress={() => router.push('/entries')} /> : undefined}>{t('Dernières saisies', 'Latest entries')}</SectionTitle>
           {latest.length ? (
             <Block>
               {latest.map((e, i) =>
@@ -119,9 +125,10 @@ export default function MonthScreen() {
             <T color={color.inkSoft}>{t('Rien d’enregistré pour l’instant.', 'Nothing recorded yet.')}</T>
           )}
         </View>
-        {property ? <Split s={s} property={property} /> : <Portfolio />}
+        {!figures ? <View /> : property ? <Split s={s} property={property} /> : <Portfolio />}
       </Cols>
 
+      {figures ? (
       <Cols ratio={[3, 2]}>
         <View>
           <SectionTitle action={<TextLink label={t('Bilan de l’année', 'Yearly report')} onPress={() => router.push('/reports')} />}>{t('Les six derniers mois', 'The last six months')}</SectionTitle>
@@ -141,6 +148,8 @@ export default function MonthScreen() {
           <View />
         )}
       </Cols>
+      ) : null}
+      {owner ? null : <View style={{ height: space.xl }} />}
     </Screen>
   );
 }
@@ -148,14 +157,15 @@ export default function MonthScreen() {
 /** The three things the app is mostly for, one tap away. */
 export function QuickAdd() {
   const t = useT();
+  const { sees } = useAccess();
   const go = (type: 'expense' | 'booking') => router.push({ pathname: '/entry', params: { type } });
   return (
     <View style={{ gap: space.sm }}>
       <View style={{ flexDirection: 'row', gap: space.sm }}>
-        <BigButton label={t('Dépense', 'Expense')} icon="minus" tint={color.tintExpense} ink={color.negative} onPress={() => go('expense')} />
-        <BigButton label={t('Revenu', 'Income')} icon="plus" tint={color.tintIncome} ink={color.positive} onPress={() => go('booking')} />
+        {sees('expenses') ? <BigButton label={t('Dépense', 'Expense')} icon="minus" tint={color.tintExpense} ink={color.negative} onPress={() => go('expense')} /> : null}
+        {sees('income') ? <BigButton label={t('Revenu', 'Income')} icon="plus" tint={color.tintIncome} ink={color.positive} onPress={() => go('booking')} /> : null}
       </View>
-      <Button compact tone="quiet" icon="receipt" label={t('Ajouter une facture', 'Add an invoice')} onPress={() => router.push('/documents')} />
+      {sees('invoices') ? <Button compact tone="quiet" icon="receipt" label={t('Ajouter une facture', 'Add an invoice')} onPress={() => router.push('/documents')} /> : null}
     </View>
   );
 }
@@ -186,6 +196,7 @@ function Summary({ s, property }: { s: Statement; property: Property | null }) {
   const value = property ? s.net : s.mine;
   const empty = !s.bookings.length && !s.expenseRows.length;
   const managed = property?.kind === 'managed';
+  const { owner } = useAccess();
   return (
     <View>
       <T variant="label" color={color.inkSoft}>
@@ -198,8 +209,8 @@ function Summary({ s, property }: { s: Statement; property: Property | null }) {
         {empty ? <Tag label={t('Rien d’enregistré ce mois-ci', 'Nothing recorded this month')} /> : null}
         {s.rentCovered === true ? <Tag tone="positive" label={t('Loyer couvert', 'Rent covered')} /> : null}
         {s.rentCovered === false ? <Tag tone="negative" label={t('Loyer non couvert', 'Rent not covered')} /> : null}
-        {property && s.parties.length > 1 ? <Tag label={t(`Pour moi : ${money(s.mine, { sign: true })}`, `For me: ${money(s.mine, { sign: true })}`)} /> : null}
-        {managed && s.commission ? <Tag label={t(`dont ${money(s.commission)} de commission`, `incl. ${money(s.commission)} commission`)} /> : null}
+        {owner && property && s.parties.length > 1 ? <Tag label={t(`Pour moi : ${money(s.mine, { sign: true })}`, `For me: ${money(s.mine, { sign: true })}`)} /> : null}
+        {owner && managed && s.commission ? <Tag label={t(`dont ${money(s.commission)} de commission`, `incl. ${money(s.commission)} commission`)} /> : null}
         {s.setup ? <Tag label={t(`Hors mise en place : ${money(s.setup)}`, `Set-up costs aside: ${money(s.setup)}`)} /> : null}
       </View>
       {property && (s.rent > 0 || s.expenses > 0) ? (
@@ -236,28 +247,52 @@ function Split({ s, property }: { s: Statement; property: Property }) {
   const data = useData();
   const month = useStore((st) => st.month);
   const rule = ruleFor(data.rules, property.id, month);
+  const { owner, isMe } = useAccess();
   const lines = [...s.parties].sort((a, b) => Number(b.party.is_me) - Number(a.party.is_me));
+  const holder = lines.find((l) => l.party.is_me)?.party.name ?? '';
   const solo = lines.length <= 1 && !s.commission && !s.privateExpenses;
 
   return (
     <View>
-      <SectionTitle action={<TextLink label={t('Règles', 'Rules')} onPress={() => router.push({ pathname: '/rules', params: { property: property.id } })} />}>{t('Répartition', 'Split')}</SectionTitle>
+      <SectionTitle action={owner ? <TextLink label={t('Règles', 'Rules')} onPress={() => router.push({ pathname: '/rules', params: { property: property.id } })} /> : undefined}>{t('Répartition', 'Split')}</SectionTitle>
       {!rule ? (
         <Notice text={t('Aucune règle de partage pour ce bien : tout est compté pour moi.', 'No sharing rule for this property yet: everything counts as mine.')} />
       ) : solo ? (
-        <T color={color.inkSoft}>{t('Ce bien est à moi seule : le résultat du mois me revient en entier.', 'This place is mine alone: the whole result of the month is mine.')}</T>
+        <T color={color.inkSoft}>{owner ? t('Ce bien est à moi seule : le résultat du mois me revient en entier.', 'This place is mine alone: the whole result of the month is mine.') : t(`Le résultat du mois revient en entier à ${holder}.`, `The whole result of the month goes to ${holder}.`)}</T>
       ) : (
         <Block>
           {lines.map((line) => {
             const share = rule.shares.find((x) => x.party_id === line.party.id);
             const parts = [shareLabel(share, locale)].filter(Boolean);
-            if (line.party.is_me && line.commission) parts.push(t(`commission ${money(line.commission)}`, `commission ${money(line.commission)}`));
-            return <Row key={line.party.id} title={line.party.is_me ? t('Moi', 'Me') : line.party.name} subtitle={parts.join(', ') || undefined} value={money(line.net, { sign: true })} valueColor={line.net < 0 ? color.negative : color.ink} />;
+            if (isMe(line.party) && line.commission) parts.push(t(`commission ${money(line.commission)}`, `commission ${money(line.commission)}`));
+            return <Row key={line.party.id} title={isMe(line.party) ? t('Moi', 'Me') : line.party.name} subtitle={parts.join(', ') || undefined} value={money(line.net, { sign: true })} valueColor={line.net < 0 ? color.negative : color.ink} />;
           })}
           {s.privateExpenses ? <Row title={t('Mes frais privés', 'My private costs')} subtitle={t('Jamais visibles dans un relevé partagé', 'Never shown in a shared statement')} value={money(-s.privateExpenses)} leading={<Icon name="lock" size={16} color={color.inkSoft} />} /> : null}
           {s.privateExpenses ? <Row title={t('Pour moi ce mois-ci', 'For me this month')} value={money(s.mine, { sign: true })} valueColor={s.mine < 0 ? color.negative : color.positive} /> : null}
         </Block>
       )}
+    </View>
+  );
+}
+
+/** For a member who does not see the figures: what this space is for. */
+function MemberIntro() {
+  const t = useT();
+  const { access, canEdit } = useAccess();
+  const { property } = useSelection();
+  return (
+    <View style={{ gap: space.sm }}>
+      <T variant="label" color={color.inkSoft}>
+        {access?.ownerName ? t(`Partagé par ${access.ownerName}`, `Shared by ${access.ownerName}`) : t('Bien partagé', 'Shared property')}
+      </T>
+      <T variant="hero" numberOfLines={2}>
+        {property?.name ?? ''}
+      </T>
+      <T color={color.inkSoft}>
+        {canEdit
+          ? t('Note ici ce qui entre et ce qui sort pour ce logement. Tout est enregistré directement dans ses comptes.', 'Record here what comes in and goes out for this place. Everything goes straight into its accounts.')
+          : t('Tu peux consulter ce qui a été enregistré pour ce logement.', 'You can look at what was recorded for this place.')}
+      </T>
     </View>
   );
 }

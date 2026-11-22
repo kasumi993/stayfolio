@@ -11,7 +11,7 @@ import { addMonths, currentMonth } from '@/core/dates';
 import type { Booking, Expense } from '@/core/types';
 import { useData, useStore } from '@/data/store';
 import { BookingRow, ExpenseRow } from '@/features/EntryRows';
-import { useMoney, useSelection } from '@/features/hooks';
+import { useAccess, useMoney, useSelection } from '@/features/hooks';
 import { PageHeader } from '@/features/PageHeader';
 import { dayLabel, monthLabel, useLocale, useT } from '@/i18n';
 import { Button, Choice, Empty, SectionTitle } from '@/ui/controls';
@@ -31,7 +31,11 @@ export default function EntriesScreen() {
   const setMonth = useStore((s) => s.setMonth);
   const { property } = useSelection();
   const id = property?.id ?? null;
-  const [show, setShow] = useState<'all' | 'income' | 'expenses'>('all');
+  const { canEdit, sees } = useAccess();
+  const both = sees('income') && sees('expenses');
+  const [picked, setShow] = useState<'all' | 'income' | 'expenses'>('all');
+  // A member who sees only one kind gets only that kind.
+  const show = both ? picked : sees('income') ? 'income' : 'expenses';
   const [query, setQuery] = useState('');
   const byId = useMemo(() => new Map(data.properties.map((p) => [p.id, p])), [data.properties]);
   const s = useMemo(() => monthStatement(data, id, month), [data, id, month]);
@@ -54,11 +58,13 @@ export default function EntriesScreen() {
         subtitle={monthLabel(month, locale)}
         stepper={{ onPrev: () => setMonth(addMonths(month, -1)), onNext: () => setMonth(addMonths(month, 1)), onReset: () => setMonth(currentMonth()) }}
       />
-      <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.lg }}>
-        <Button icon="minus" label={t('Dépense', 'Expense')} onPress={() => router.push({ pathname: '/entry', params: { type: 'expense' } })} style={{ flex: 1 }} />
-        <Button tone="quiet" icon="plus" label={t('Revenu', 'Income')} onPress={() => router.push({ pathname: '/entry', params: { type: 'booking' } })} style={{ flex: 1 }} />
-      </View>
-      <Choice
+      {canEdit ? (
+        <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.lg }}>
+          {sees('expenses') ? <Button icon="minus" label={t('Dépense', 'Expense')} onPress={() => router.push({ pathname: '/entry', params: { type: 'expense' } })} style={{ flex: 1 }} /> : null}
+          {sees('income') ? <Button tone={sees('expenses') ? 'quiet' : 'primary'} icon="plus" label={t('Revenu', 'Income')} onPress={() => router.push({ pathname: '/entry', params: { type: 'booking' } })} style={{ flex: 1 }} /> : null}
+        </View>
+      ) : null}
+      {both ? <Choice
         value={show}
         onChange={setShow}
         options={[
@@ -66,8 +72,8 @@ export default function EntriesScreen() {
           { value: 'income', label: t(`Revenus · ${money(s.revenue)}`, `Income · ${money(s.revenue)}`) },
           { value: 'expenses', label: t(`Dépenses · ${money(s.expenses)}`, `Expenses · ${money(s.expenses)}`) },
         ]}
-      />
-      <View style={{ marginTop: space.md }}>
+      /> : null}
+      <View style={{ marginTop: both ? space.md : 0 }}>
         <Field label={t('Chercher', 'Search')} value={query} onChangeText={setQuery} placeholder={t('Airbnb, ménage, Senelec…', 'Airbnb, cleaning, power…')} />
       </View>
 

@@ -178,6 +178,30 @@ export interface Doc {
   created_at: string;
 }
 
+/** What a member's link lets them see. */
+export type MemberPage = 'income' | 'expenses' | 'invoices' | 'report' | 'cash';
+export const MEMBER_PAGES: MemberPage[] = ['income', 'expenses', 'invoices', 'report', 'cash'];
+
+/**
+ * Someone the owner shares one property with through a personal link: no
+ * account, no password. What they may see or change is enforced by the
+ * database functions in supabase/migrations/*_members.sql.
+ */
+export interface Member {
+  id: ID;
+  property_id: ID;
+  name: string;
+  /** Where the monthly report goes, if they get it. Optional. */
+  email: string;
+  /** Secret part of their link. Set by the database; rotate it to cut an old link. */
+  token: string;
+  can_edit: boolean;
+  pages: MemberPage[];
+  monthly_report: boolean;
+  last_seen_at: string | null;
+  created_at: string;
+}
+
 /** A published, read-only statement that an owner or partner can open. */
 export interface ShareLink {
   id: ID;
@@ -211,6 +235,7 @@ export interface Data {
   transfers: Transfer[];
   docs: Doc[];
   shares: ShareLink[];
+  members: Member[];
 }
 
 export const emptyData = (): Data => ({
@@ -224,6 +249,7 @@ export const emptyData = (): Data => ({
   transfers: [],
   docs: [],
   shares: [],
+  members: [],
 });
 
 export const CATEGORIES = [

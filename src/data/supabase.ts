@@ -9,7 +9,7 @@ import 'expo-sqlite/localStorage/install';
 import { type SupabaseClient, createClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 
-import { type Data, type Profile, emptyData } from '@/core/types';
+import { type Data, type Member, type Profile, emptyData } from '@/core/types';
 
 import { AiUnavailable, type Backend, type Session, type Table } from './backend';
 
@@ -130,7 +130,7 @@ export function createSupabaseBackend(): Backend {
     async load() {
       const id = await userId();
       const data: Data = emptyData();
-      const [profile, properties, parties, rules, bookings, expenses, recurring, transfers, docs, shares] =
+      const [profile, properties, parties, rules, bookings, expenses, recurring, transfers, docs, shares, members] =
         await Promise.all([
           db.from('profiles').select('*').eq('id', id).maybeSingle(),
           all('properties'),
@@ -142,12 +142,14 @@ export function createSupabaseBackend(): Backend {
           all('transfers'),
           all('docs'),
           db.from('shares').select('id,property_id,party_id,title,token,revoked,created_at').order('created_at'),
+          db.from('members').select('*').order('created_at'),
         ]);
       const p = check(profile) as (Profile & { id: string }) | null;
       if (p) data.profile = { name: p.name, currency: p.currency, fx: p.fx, locale: p.locale };
       else check(await db.from('profiles').insert({ id, ...data.profile }));
       Object.assign(data, { properties, parties, rules, bookings, expenses, recurring, transfers, docs });
       data.shares = check(shares) as Data['shares'];
+      data.members = ((check(members) ?? []) as (Member & { owner_id?: string })[]).map(({ owner_id: _o, ...m }) => m);
       return data;
     },
     async saveProfile(profile) {
@@ -158,6 +160,20 @@ export function createSupabaseBackend(): Backend {
     },
     async remove(table: Table, ids) {
       if (ids.length) check(await db.from(table).delete().in('id', ids));
+    },
+
+    async saveMember(member) {
+      const { id, property_id, ...fields } = member;
+      // The token and the visit date are the database's: never sent.
+      const exists = (check(await db.from('members').select('id').eq('id', id).maybeSingle()) as { id: string } | null) !== null;
+      const row = exists
+        ? check(await db.from('members').update(fields).eq('id', id).select('*').single())
+        : check(await db.from('members').insert({ id, property_id, ...fields }).select('*').single());
+      const { owner_id: _o, ...saved } = row as Member & { owner_id?: string };
+      return saved;
+    },
+    async rotateMemberToken(id) {
+      return check(await db.rpc('rotate_member_token', { p_id: id })) as string;
     },
 
     async uploadFile(path, bytes, mime) {

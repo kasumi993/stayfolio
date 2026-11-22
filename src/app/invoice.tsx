@@ -16,7 +16,7 @@ import { today } from '@/core/dates';
 import { evalAmount } from '@/core/money';
 import type { Doc, Expense } from '@/core/types';
 import { useData, useStore } from '@/data/store';
-import { useMoney, usePropertyChoice } from '@/features/hooks';
+import { useAccess, useMoney, usePropertyChoice } from '@/features/hooks';
 import { peekPendingFile, setPendingFile } from '@/features/pendingFile';
 import { categoryLabel, dayLabel, useLocale, useT } from '@/i18n';
 import type { PickedFile } from '@/platform/pick';
@@ -34,11 +34,12 @@ export default function InvoiceScreen() {
   const money = useMoney();
   const data = useData();
   const { save, addDoc, removeDoc } = useStore.getState();
+  const { owner, canEdit } = useAccess();
   const existing = params.id ? data.docs.find((d) => d.id === params.id) : undefined;
   const [file] = useState<PickedFile | null>(() => (params.new === '1' ? peekPendingFile() : null));
   useEffect(() => () => setPendingFile(null), []);
 
-  const { propertyId, setPropertyId, options } = usePropertyChoice(existing ? existing.property_id : undefined, true);
+  const { propertyId, setPropertyId, options } = usePropertyChoice(existing ? existing.property_id : undefined, owner);
   const [title, setTitle] = useState(existing?.title ?? '');
   const [date, setDate] = useState(existing?.date ?? today());
   const [amount, setAmount] = useState(existing?.amount != null ? String(existing.amount) : '');
@@ -70,6 +71,27 @@ export default function InvoiceScreen() {
     return (
       <FormScreen title={t('Facture', 'Invoice')}>
         <T color={color.inkSoft}>{t('Cette facture n’existe plus.', 'This invoice no longer exists.')}</T>
+      </FormScreen>
+    );
+  }
+
+  if (!canEdit) {
+    // A view-only member link: the invoice and its details, nothing to change.
+    return (
+      <FormScreen title={t('Facture', 'Invoice')}>
+        <Preview doc={existing} file={null} />
+        {existing?.title ? <T variant="heading">{existing.title}</T> : null}
+        <T color={color.inkSoft}>
+          {[existing?.date ? dayLabel(existing.date, locale) + ' ' + existing.date.slice(0, 4) : null, existing?.amount ? money(existing.amount) : null].filter(Boolean).join(', ')}
+        </T>
+        {linked ? (
+          <View>
+            <Label>{t('Dépense liée', 'Linked expense')}</Label>
+            <Block>
+              <Row title={linked.description || linked.vendor || categoryLabel(linked.category, locale)} subtitle={[categoryLabel(linked.category, locale), dayLabel(linked.date, locale)].join(', ')} value={money(-base(linked))} onPress={() => router.push({ pathname: '/entry', params: { type: 'expense', id: linked.id } })} last />
+            </Block>
+          </View>
+        ) : null}
       </FormScreen>
     );
   }
@@ -135,7 +157,7 @@ export default function InvoiceScreen() {
         ) : null}
       </View>
 
-      {existing ? (
+      {existing && owner ? (
         <ConfirmButton
           label={t('Supprimer cette facture', 'Delete this invoice')}
           confirmLabel={t('Confirmer la suppression', 'Confirm deletion')}

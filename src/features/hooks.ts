@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { type FormatOptions, formatMoney } from '@/core/money';
-import type { Party, Property } from '@/core/types';
+import type { MemberPage, Party, Property } from '@/core/types';
 import { useData, useStore } from '@/data/store';
 import { useT } from '@/i18n';
 import { pigmentDot, pigmentOf } from '@/ui/theme';
@@ -52,3 +52,23 @@ export function usePropertyChoice(initial: string | null | undefined, allowNone:
   return { propertyId, setPropertyId, options };
 }
 
+
+/**
+ * What the person looking may do. The owner may do everything; someone who
+ * opened a member link sees only the pages allowed and edits only if allowed.
+ * The server enforces the same rules: this only decides what to show.
+ */
+export function useAccess() {
+  const access = useStore((s) => s.backend.access);
+  return useMemo(() => {
+    const owner = !access;
+    return {
+      owner,
+      access,
+      canEdit: owner || access.canEdit,
+      sees: (page: MemberPage) => owner || access.pages.includes(page),
+      /** True for the owner's own party, only when the owner is the one looking. */
+      isMe: (party: Pick<Party, 'is_me'>) => owner && party.is_me,
+    };
+  }, [access]);
+}
