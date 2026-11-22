@@ -165,9 +165,16 @@ export interface Doc {
   booking_id: ID | null;
   /** Path inside the private `documents` storage bucket. */
   path: string;
+  /** File name as picked. */
   name: string;
   mime: string;
   size: number;
+  /** What the invoice is for, when it stands alone ("Facture Senelec"). */
+  title: string;
+  /** Date written on the invoice. */
+  date: ISODate | null;
+  /** Amount written on the invoice, account currency. Informative: only expenses count. */
+  amount: number | null;
   created_at: string;
 }
 

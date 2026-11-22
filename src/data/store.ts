@@ -51,7 +51,7 @@ interface Store {
   save<T extends Row>(table: Table, rows: T | T[]): Promise<void>;
   remove(table: Table, ids: ID | ID[]): Promise<void>;
   saveProfile(profile: Profile): Promise<void>;
-  addDoc(file: { bytes: Uint8Array; mime: string; name: string }, link: Partial<Pick<Doc, 'property_id' | 'expense_id' | 'booking_id'>>): Promise<Doc>;
+  addDoc(file: { bytes: Uint8Array; mime: string; name: string }, link: Partial<Pick<Doc, 'property_id' | 'expense_id' | 'booking_id' | 'title' | 'date' | 'amount'>>): Promise<Doc>;
   removeDoc(doc: Doc): Promise<void>;
   applyImport(plan: ImportPlan): Promise<void>;
   publish(share: Pick<ShareLink, 'property_id' | 'party_id' | 'title'>, payload: SharedStatement): Promise<ShareLink>;
@@ -195,6 +195,9 @@ export const useStore = create<Store>((set, get) => {
         name: file.name,
         mime: file.mime,
         size: file.bytes.length,
+        title: link.title ?? '',
+        date: link.date ?? null,
+        amount: link.amount ?? null,
         created_at: now(),
       };
       try {

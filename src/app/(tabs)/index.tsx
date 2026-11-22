@@ -1,17 +1,17 @@
 /**
- * Month: the screen opened every day. The result of the month first, then the
- * key figures, the trend, the split between parties, and every entry.
+ * Home: the screen opened every day. The result of the month, the buttons to
+ * record an expense or an income, the latest entries, then the figures.
  */
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
-import { type Statement, base, monthStatement, nightsOf, occupancy, ruleFor, series } from '@/core/calc';
+import { type Statement, monthStatement, occupancy, ruleFor, series } from '@/core/calc';
 import { addMonths, currentMonth, monthRange } from '@/core/dates';
 import { type Insight, insightsFor } from '@/core/insights';
-import { formatMoney } from '@/core/money';
-import type { Booking, Expense, Property } from '@/core/types';
+import type { Property } from '@/core/types';
 import { useData, useStore } from '@/data/store';
+import { BookingRow, ExpenseRow } from '@/features/EntryRows';
 import { useMoney, useSelection } from '@/features/hooks';
 import { PageHeader } from '@/features/PageHeader';
 import { type Translate, categoryLabel, dayLabel, monthLabel, monthShort, shareLabel, useLocale, useT } from '@/i18n';
@@ -20,7 +20,7 @@ import { Button, Dot, Empty, Notice, Row, SectionTitle, Tag, TextLink } from '@/
 import { Icon } from '@/ui/Icon';
 import { Block, Card, Cols, Screen, useWide } from '@/ui/layout';
 import { T } from '@/ui/Text';
-import { color, pigmentDot, platformColor, seriesColors, space } from '@/ui/theme';
+import { color, pigmentDot, radius, seriesColors, space } from '@/ui/theme';
 
 export default function MonthScreen() {
   useQuickAdd();
@@ -41,7 +41,6 @@ export default function MonthScreen() {
   const byId = useMemo(() => new Map(data.properties.map((p) => [p.id, p])), [data.properties]);
 
   const bookings = [...s.bookings].sort((a, b) => a.check_in.localeCompare(b.check_in));
-  const expenses = [...s.expenseRows].sort((a, b) => a.date.localeCompare(b.date));
   const categories = Object.entries(s.byCategory).sort((a, b) => b[1] - a[1]);
   const tints = seriesColors();
 
@@ -57,13 +56,22 @@ export default function MonthScreen() {
     );
   }
 
+  const latest = [
+    ...data.bookings.filter((b) => !id || b.property_id === id).map((b) => ({ kind: 'booking' as const, row: b, at: b.created_at, day: b.check_in })),
+    ...data.expenses.filter((x) => !x.excluded && (!id || x.property_id === id)).map((x) => ({ kind: 'expense' as const, row: x, at: x.created_at, day: x.date })),
+  ]
+    // Last recorded first; entries recorded together (an import) by their own date.
+    .sort((a, b) => b.at.slice(0, 16).localeCompare(a.at.slice(0, 16)) || b.day.localeCompare(a.day))
+    .slice(0, 6);
+
   return (
     <Screen>
       <PageHeader title={monthLabel(month, locale)} stepper={{ onPrev: () => setMonth(addMonths(month, -1)), onNext: () => setMonth(addMonths(month, 1)), onReset: () => setMonth(currentMonth()) }} />
 
       <Cols ratio={[2, 3]} gap={space.xl}>
         <Summary s={s} property={property} />
-        <View style={{ marginTop: wide ? 0 : space.xl }}>
+        <View style={{ marginTop: wide ? 0 : space.xl, gap: space.md }}>
+          <QuickAdd />
           <Tiles wide={false}>
             {[
               <Tile key="in" label={t('Revenus', 'Income')} value={money(s.revenue)} note={t(`${bookings.length} versement${bookings.length > 1 ? 's' : ''}`, `${bookings.length} payout${bookings.length > 1 ? 's' : ''}`)} tint={color.tintIncome} />,
@@ -96,50 +104,76 @@ export default function MonthScreen() {
 
       <Cols ratio={[3, 2]}>
         <View>
-          <SectionTitle>{t('Les six derniers mois', 'The last six months')}</SectionTitle>
+          <SectionTitle action={<TextLink label={t('Tout voir', 'See all')} onPress={() => router.push('/entries')} />}>{t('Dernières saisies', 'Latest entries')}</SectionTitle>
+          {latest.length ? (
+            <Block>
+              {latest.map((e, i) =>
+                e.kind === 'booking' ? (
+                  <BookingRow key={e.row.id} booking={e.row} property={property ? undefined : byId.get(e.row.property_id)} last={i === latest.length - 1} />
+                ) : (
+                  <ExpenseRow key={e.row.id} expense={e.row} property={property ? undefined : e.row.property_id ? byId.get(e.row.property_id) : undefined} last={i === latest.length - 1} />
+                ),
+              )}
+            </Block>
+          ) : (
+            <T color={color.inkSoft}>{t('Rien d’enregistré pour l’instant.', 'Nothing recorded yet.')}</T>
+          )}
+        </View>
+        {property ? <Split s={s} property={property} /> : <Portfolio />}
+      </Cols>
+
+      <Cols ratio={[3, 2]}>
+        <View>
+          <SectionTitle action={<TextLink label={t('Bilan de l’année', 'Yearly report')} onPress={() => router.push('/reports')} />}>{t('Les six derniers mois', 'The last six months')}</SectionTitle>
           <Card>
             <Bars points={recent.map((p) => ({ key: p.month, label: monthShort(p.month, locale), income: p.revenue, expenses: p.expenses }))} selected={month} onSelect={setMonth} />
             <View style={{ marginTop: space.md }}>
               <Legend items={[{ label: t('Revenus', 'Income'), tint: color.chartIncome }, { label: t('Dépenses', 'Expenses'), tint: color.chartExpense }]} />
             </View>
           </Card>
-          {categories.length ? (
-            <>
-              <SectionTitle>{t('Où part l’argent ce mois-ci', 'Where the money goes this month')}</SectionTitle>
-              <Breakdown items={categories.map(([key, value], i) => ({ label: categoryLabel(key, locale), value, tint: tints[i % tints.length] }))} format={money} />
-            </>
-          ) : null}
         </View>
-        {property ? <Split s={s} property={property} /> : <Portfolio />}
-      </Cols>
-
-      <Cols>
-        <View>
-          <SectionTitle action={<TextLink label={t('Ajouter', 'Add')} onPress={() => router.push({ pathname: '/entry', params: { type: 'booking' } })} />}>{t('Revenus', 'Income')}</SectionTitle>
-          {bookings.length ? (
-            <Block>
-              {bookings.map((b, i) => (
-                <BookingRow key={b.id} booking={b} property={property ? undefined : byId.get(b.property_id)} last={i === bookings.length - 1} />
-              ))}
-            </Block>
-          ) : (
-            <T color={color.inkSoft}>{t('Aucun revenu ce mois-ci.', 'No income this month.')}</T>
-          )}
-        </View>
-        <View>
-          <SectionTitle action={<TextLink label={t('Ajouter', 'Add')} onPress={() => router.push({ pathname: '/entry', params: { type: 'expense' } })} />}>{t('Dépenses', 'Expenses')}</SectionTitle>
-          {expenses.length ? (
-            <Block>
-              {expenses.map((x, i) => (
-                <ExpenseRow key={x.id} expense={x} property={property ? undefined : x.property_id ? byId.get(x.property_id) : undefined} last={i === expenses.length - 1} />
-              ))}
-            </Block>
-          ) : (
-            <T color={color.inkSoft}>{t('Aucune dépense ce mois-ci.', 'No expenses this month.')}</T>
-          )}
-        </View>
+        {categories.length ? (
+          <View>
+            <SectionTitle>{t('Où part l’argent ce mois-ci', 'Where the money goes this month')}</SectionTitle>
+            <Breakdown items={categories.map(([key, value], i) => ({ label: categoryLabel(key, locale), value, tint: tints[i % tints.length] }))} format={money} />
+          </View>
+        ) : (
+          <View />
+        )}
       </Cols>
     </Screen>
+  );
+}
+
+/** The three things the app is mostly for, one tap away. */
+export function QuickAdd() {
+  const t = useT();
+  const go = (type: 'expense' | 'booking') => router.push({ pathname: '/entry', params: { type } });
+  return (
+    <View style={{ gap: space.sm }}>
+      <View style={{ flexDirection: 'row', gap: space.sm }}>
+        <BigButton label={t('Dépense', 'Expense')} icon="minus" tint={color.tintExpense} ink={color.negative} onPress={() => go('expense')} />
+        <BigButton label={t('Revenu', 'Income')} icon="plus" tint={color.tintIncome} ink={color.positive} onPress={() => go('booking')} />
+      </View>
+      <Button compact tone="quiet" icon="receipt" label={t('Ajouter une facture', 'Add an invoice')} onPress={() => router.push('/documents')} />
+    </View>
+  );
+}
+
+function BigButton({ label, icon, tint, ink, onPress }: { label: string; icon: 'plus' | 'minus'; tint: string; ink: string; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => ({ flex: 1, backgroundColor: tint, borderRadius: radius.lg, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, opacity: pressed ? 0.8 : 1 })}>
+      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: ink, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={icon} size={16} color={color.paper} weight={2.5} />
+      </View>
+      <T variant="bodyBold" color={color.ink} style={{ fontSize: 17 }}>
+        {label}
+      </T>
+    </Pressable>
   );
 }
 
@@ -258,49 +292,6 @@ function Portfolio() {
         })}
       </Block>
     </View>
-  );
-}
-
-function BookingRow({ booking: b, property, last }: { booking: Booking; property?: Property; last: boolean }) {
-  const t = useT();
-  const locale = useLocale();
-  const money = useMoney();
-  const currency = useStore((s) => s.data.profile.currency);
-  const n = nightsOf(b);
-  const stay = b.check_out ? `${dayLabel(b.check_in, locale)} – ${dayLabel(b.check_out, locale)}` : dayLabel(b.check_in, locale);
-  return (
-    <Row
-      title={b.guest ? `${b.platform}, ${b.guest}` : b.platform}
-      subtitle={[property?.name, stay, n ? t(`${n} nuit${n > 1 ? 's' : ''}`, `${n} night${n > 1 ? 's' : ''}`) : null].filter(Boolean).join(', ')}
-      value={money(base(b), { sign: true })}
-      valueColor={color.positive}
-      note={b.currency !== currency ? formatMoney(b.amount, b.currency) : undefined}
-      leading={<Dot tint={platformColor(b.platform)} size={10} />}
-      onPress={() => router.push({ pathname: '/entry', params: { type: 'booking', id: b.id } })}
-      last={last}
-    />
-  );
-}
-
-function ExpenseRow({ expense: x, property, last }: { expense: Expense; property?: Property; last: boolean }) {
-  const t = useT();
-  const locale = useLocale();
-  const money = useMoney();
-  const hasDoc = useStore((s) => s.data.docs.some((d) => d.expense_id === x.id));
-  const label = categoryLabel(x.category, locale);
-  const title = x.description || x.vendor || label;
-  const tags = [x.excluded ? t('exclue ce mois', 'excluded this month') : null, x.scope === 'private' ? t('privée', 'private') : null, x.scope === 'setup' ? t('mise en place', 'set-up') : null].filter(Boolean);
-  return (
-    <Row
-      title={title}
-      subtitle={[property?.name, label === title ? null : label, x.vendor && x.vendor !== title ? x.vendor : null, dayLabel(x.date, locale), ...tags].filter(Boolean).join(', ')}
-      value={money(-base(x))}
-      note={hasDoc ? t('reçu joint', 'receipt attached') : undefined}
-      leading={x.recurring_id ? <Icon name="repeat" size={15} color={color.inkFaint} /> : x.scope === 'private' ? <Icon name="lock" size={15} color={color.inkFaint} /> : <View style={{ width: 15 }} />}
-      dimmed={x.excluded}
-      onPress={() => router.push({ pathname: '/entry', params: { type: 'expense', id: x.id } })}
-      last={last}
-    />
   );
 }
 

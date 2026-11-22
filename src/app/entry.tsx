@@ -14,16 +14,16 @@ import { evalAmount, formatNumber, formatPercent } from '@/core/money';
 import { type Booking, CATEGORIES, type Doc, type Expense, PLATFORMS } from '@/core/types';
 import { AiUnavailable } from '@/data/backend';
 import { useData, useStore } from '@/data/store';
-import { usePartiesOf, useSelection } from '@/features/hooks';
+import { usePartiesOf, usePropertyChoice } from '@/features/hooks';
 import { peekPendingFile, setPendingFile } from '@/features/pendingFile';
-import { categoryLabel, monthLabel, useLocale, useT } from '@/i18n';
+import { categoryLabel, dayLabel, monthLabel, useLocale, useT } from '@/i18n';
 import { type PickedFile, pickDocument, pickPhoto, takePhoto } from '@/platform/pick';
 import { Button, Choice, ConfirmButton, Notice, TextLink, Toggle } from '@/ui/controls';
 import { AmountField, DateFields, Field, Label } from '@/ui/fields';
 import { Icon } from '@/ui/Icon';
 import { FormScreen } from '@/ui/layout';
 import { T } from '@/ui/Text';
-import { color, pigmentDot, platformColor, radius, space } from '@/ui/theme';
+import { color, platformColor, radius, space } from '@/ui/theme';
 
 const CURRENCIES = ['XOF', 'EUR', 'USD'];
 
@@ -33,25 +33,6 @@ export default function EntryScreen() {
 }
 
 /** Shared by both forms: which property, with the current filter as default. */
-function usePropertyChoice(initial: string | null | undefined, allowNone: boolean) {
-  const t = useT();
-  const { property, active } = useSelection();
-  const data = useData();
-  // Default: the property on screen, else the one used most recently.
-  const suggested = (): string | null => {
-    if (property) return property.id;
-    const rows = [...data.expenses, ...data.bookings].filter((r) => active.some((p) => p.id === r.property_id));
-    const latest = rows.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-    return latest?.property_id ?? active[0]?.id ?? null;
-  };
-  const [propertyId, setPropertyId] = useState<string | null>(initial !== undefined ? initial : suggested);
-  const options = [
-    ...active.map((p) => ({ value: p.id as string | null, label: p.name, dot: pigmentDot(p.color) })),
-    ...(allowNone ? [{ value: null, label: t('Aucun (mon activité)', 'None (my business)') }] : []),
-  ];
-  return { propertyId, setPropertyId, options };
-}
-
 /** Converts between the amount typed and the account currency. */
 function useRate(currency: string, initial?: number) {
   const profile = useStore((s) => s.data.profile);
@@ -65,7 +46,7 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
   const t = useT();
   const locale = useLocale();
   const data = useData();
-  const { save, remove, addDoc, removeDoc, backend } = useStore.getState();
+  const { save, remove, addDoc, backend } = useStore.getState();
   const existing = data.expenses.find((x) => x.id === id);
   const profile = data.profile;
 
@@ -85,6 +66,10 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
   const { rate, custom, setCustom, fallback, foreign } = useRate(currency, existing?.fx_rate);
   const parties = usePartiesOf(propertyId);
   const docs = data.docs.filter((d) => existing && d.expense_id === existing.id);
+  // Invoices already filed, chosen to be linked when the expense is saved.
+  const [toLink, setToLink] = useState<string[]>([]);
+  const [choosingDoc, setChoosingDoc] = useState(false);
+  const loose = data.docs.filter((d) => !d.expense_id && !toLink.includes(d.id) && (!propertyId || !d.property_id || d.property_id === propertyId));
 
   const [file, setFile] = useState<PickedFile | null>(() => (scan ? peekPendingFile() : null));
   const [reading, setReading] = useState(false);
@@ -163,6 +148,7 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
     try {
       await save('expenses', row);
       if (file) await addDoc(file, { expense_id: row.id, property_id: propertyId });
+      for (const d of data.docs.filter((x) => toLink.includes(x.id))) await save('docs', { ...d, expense_id: row.id, property_id: propertyId ?? d.property_id });
       useStore.getState().setMonth(row.month);
       router.back();
     } catch {
@@ -173,7 +159,8 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
   async function destroy() {
     if (!existing) return;
     setBusy(true);
-    for (const d of docs) await removeDoc(d);
+    // Its invoices stay filed, on their own.
+    for (const d of docs) await save('docs', { ...d, expense_id: null });
     await remove('expenses', existing.id);
     router.back();
   }
@@ -216,8 +203,13 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
       <View>
         <Label>{t('Justificatif', 'Receipt')}</Label>
         {docs.map((d) => (
-          <DocLine key={d.id} doc={d} onRemove={() => void removeDoc(d)} />
+          <DocLine key={d.id} doc={d} onRemove={() => void save('docs', { ...d, expense_id: null })} />
         ))}
+        {data.docs
+          .filter((d) => toLink.includes(d.id))
+          .map((d) => (
+            <DocLine key={d.id} doc={d} onRemove={() => setToLink(toLink.filter((x) => x !== d.id))} />
+          ))}
         {file ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, borderWidth: 1, borderColor: color.line, borderRadius: radius.md, padding: space.sm, marginBottom: space.sm }}>
             {file.base64 ? <Image source={{ uri: `data:${file.mime};base64,${file.base64}` }} style={{ width: 56, height: 56, borderRadius: radius.sm }} contentFit="cover" /> : <Icon name="file" />}
@@ -233,6 +225,33 @@ function ExpenseForm({ id, scan }: { id?: string; scan: boolean }) {
             <Button compact tone="quiet" icon="file" label="PDF" onPress={() => void attach(pickDocument)} style={{ flex: 1 }} />
           </View>
         )}
+        {loose.length ? (
+          choosingDoc ? (
+            <View style={{ borderWidth: 1, borderColor: color.line, borderRadius: radius.md, padding: space.sm, marginTop: space.sm, gap: 2 }}>
+              {loose.map((d) => (
+                <Pressable
+                  key={d.id}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setToLink([...toLink, d.id]);
+                    setChoosingDoc(false);
+                  }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.sm }}>
+                  <Icon name={d.mime === 'application/pdf' ? 'file' : 'image'} size={18} color={color.inkSoft} />
+                  <T variant="label" style={{ flex: 1 }} numberOfLines={1}>
+                    {d.title || d.name || t('Facture', 'Invoice')}
+                  </T>
+                  {d.date ? <T variant="small" color={color.inkSoft}>{dayLabel(d.date, locale)}</T> : null}
+                </Pressable>
+              ))}
+              <TextLink label={t('Annuler', 'Cancel')} onPress={() => setChoosingDoc(false)} />
+            </View>
+          ) : (
+            <View style={{ marginTop: space.sm }}>
+              <TextLink label={t(`Choisir une facture déjà rangée (${loose.length})`, `Pick an invoice already filed (${loose.length})`)} onPress={() => setChoosingDoc(true)} />
+            </View>
+          )
+        ) : null}
       </View>
 
       {propertyId ? (
@@ -409,18 +428,18 @@ function BookingForm({ id }: { id?: string }) {
   );
 }
 
-/** One attached file, opened in the documents tab when tapped. */
+/** One attached invoice: tap to open it, "Détacher" keeps it filed on its own. */
 function DocLine({ doc, onRemove }: { doc: Doc; onRemove: () => void }) {
   const t = useT();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, borderWidth: 1, borderColor: color.line, borderRadius: radius.md, padding: space.md, marginBottom: space.sm }}>
       <Icon name={doc.mime === 'application/pdf' ? 'file' : 'image'} color={color.inkSoft} />
-      <Pressable style={{ flex: 1 }} onPress={() => router.push({ pathname: '/documents', params: { open: doc.id } })}>
+      <Pressable style={{ flex: 1 }} onPress={() => router.push({ pathname: '/invoice', params: { id: doc.id } })}>
         <T variant="label" numberOfLines={1}>
-          {doc.name || t('Justificatif', 'Receipt')}
+          {doc.title || doc.name || t('Justificatif', 'Receipt')}
         </T>
       </Pressable>
-      <TextLink label={t('Retirer', 'Remove')} onPress={onRemove} tint={color.negative} />
+      <TextLink label={t('Détacher', 'Unlink')} onPress={onRemove} />
     </View>
   );
 }

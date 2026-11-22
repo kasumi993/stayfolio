@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { type FormatOptions, formatMoney } from '@/core/money';
 import type { Party, Property } from '@/core/types';
-import { useStore } from '@/data/store';
-import { pigmentOf } from '@/ui/theme';
+import { useData, useStore } from '@/data/store';
+import { useT } from '@/i18n';
+import { pigmentDot, pigmentOf } from '@/ui/theme';
 
 /** Formats an amount in the account currency. */
 export function useMoney() {
@@ -30,3 +31,24 @@ export function usePartiesOf(propertyId: string | null | undefined): Party[] {
     [parties, propertyId],
   );
 }
+
+/** Which property a new entry goes to. Default: the one on screen, else the one used last. */
+export function usePropertyChoice(initial: string | null | undefined, allowNone: boolean) {
+  const t = useT();
+  const { property, active } = useSelection();
+  const data = useData();
+  // Default: the property on screen, else the one used most recently.
+  const suggested = (): string | null => {
+    if (property) return property.id;
+    const rows = [...data.expenses, ...data.bookings].filter((r) => active.some((p) => p.id === r.property_id));
+    const latest = rows.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    return latest?.property_id ?? active[0]?.id ?? null;
+  };
+  const [propertyId, setPropertyId] = useState<string | null>(initial !== undefined ? initial : suggested);
+  const options = [
+    ...active.map((p) => ({ value: p.id as string | null, label: p.name, dot: pigmentDot(p.color) })),
+    ...(allowNone ? [{ value: null, label: t('Aucun (mon activité)', 'None (my business)') }] : []),
+  ];
+  return { propertyId, setPropertyId, options };
+}
+

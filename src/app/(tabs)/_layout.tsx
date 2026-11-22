@@ -21,12 +21,15 @@ import { Logo } from '@/ui/Logo';
 import { T } from '@/ui/Text';
 import { color, maxWidth, radius, space } from '@/ui/theme';
 
+/** The four destinations. Recording income and expenses comes first. */
 const TABS: { name: string; icon: IconName; fr: string; en: string }[] = [
-  { name: 'index', icon: 'month', fr: 'Mois', en: 'Month' },
-  { name: 'properties', icon: 'home', fr: 'Biens', en: 'Places' },
-  { name: 'reports', icon: 'chart', fr: 'Bilan', en: 'Reports' },
-  { name: 'documents', icon: 'receipt', fr: 'Reçus', en: 'Receipts' },
+  { name: 'index', icon: 'home', fr: 'Accueil', en: 'Home' },
+  { name: 'entries', icon: 'list', fr: 'Saisies', en: 'Entries' },
+  { name: 'documents', icon: 'receipt', fr: 'Factures', en: 'Invoices' },
+  { name: 'properties', icon: 'building', fr: 'Biens', en: 'Places' },
 ];
+/** Reached from the home screen and the properties; listed in the sidebar on a computer. */
+const MORE: { name: string; icon: IconName; fr: string; en: string }[] = [{ name: 'reports', icon: 'chart', fr: 'Bilan', en: 'Reports' }];
 
 export default function TabsLayout() {
   const wide = useWide();
@@ -37,6 +40,7 @@ export default function TabsLayout() {
       {TABS.map((tab) => (
         <Tabs.Screen key={tab.name} name={tab.name} />
       ))}
+      <Tabs.Screen name="reports" />
       {/* A property's page: part of "Places", not a destination of its own. */}
       <Tabs.Screen name="property" />
     </Tabs>
@@ -74,13 +78,25 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
     }
   }
 
+  async function fileInvoice() {
+    setAdding(false);
+    try {
+      const file = await pickDocument();
+      if (!file) return;
+      setPendingFile(file);
+      router.push({ pathname: '/invoice', params: { new: '1' } });
+    } catch {
+      useStore.setState({ error: t('Le fichier n’a pas pu être ouvert.', 'The file could not be opened.') });
+    }
+  }
+
   const sheet = (
     <Sheet open={adding} onClose={() => setAdding(false)} title={t('Ajouter', 'Add')}>
       <View style={{ gap: 2 }}>
         <AddOption icon="minus" tint={color.negative} bg={color.tintExpense} title={t('Une dépense', 'An expense')} text={t('Ménage, électricité, achat…', 'Cleaning, electricity, a purchase…')} onPress={() => open({ pathname: '/entry', params: { type: 'expense' } })} />
         <AddOption icon="plus" tint={color.positive} bg={color.tintIncome} title={t('Un revenu', 'Income')} text={t('Un versement Airbnb, Booking ou en direct', 'A payout from Airbnb, Booking or direct')} onPress={() => open({ pathname: '/entry', params: { type: 'booking' } })} />
         <AddOption icon="camera" bg={color.tintOccupancy} title={t('Photographier un reçu', 'Photograph a receipt')} text={t('La dépense se remplit à partir de la photo', 'The expense is filled in from the photo')} onPress={() => void attach(takePhoto)} />
-        <AddOption icon="file" bg={color.tintNight} title={t('Joindre un PDF ou une image', 'Attach a PDF or an image')} text={t('Une facture déjà enregistrée', 'An invoice already saved')} onPress={() => void attach(pickDocument)} />
+        <AddOption icon="file" bg={color.tintNight} title={t('Ranger une facture', 'File an invoice')} text={t('Seule, ou rattachée plus tard à une dépense', 'On its own, or linked to an expense later')} onPress={() => void fileInvoice()} />
       </View>
     </Sheet>
   );
@@ -93,7 +109,7 @@ function Navigation({ state, navigateToTab, wide }: BottomTabBarProps & { wide: 
         </View>
         <Button icon="plus" label={t('Ajouter', 'Add')} onPress={add} />
         <View style={{ gap: 2, marginTop: space.xl }}>
-          {TABS.map((item) => {
+          {[...TABS, ...MORE].map((item) => {
             const active = current === item.name;
             return (
               <Pressable

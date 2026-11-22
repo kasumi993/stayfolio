@@ -66,6 +66,7 @@ function Screens() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="welcome" options={{ animation: 'none' }} />
         <Stack.Screen name="entry" options={modal} />
+        <Stack.Screen name="invoice" options={modal} />
         <Stack.Screen name="recurring" options={modal} />
         <Stack.Screen name="transfer" options={modal} />
         <Stack.Screen name="rules" options={modal} />

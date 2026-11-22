@@ -74,7 +74,21 @@ export default function PropertyScreen() {
         title={property.name}
         subtitle={[kindLabel(property.kind, locale), property.location].filter(Boolean).join(', ')}
         filter={false}
-        action={<Button compact tone="quiet" icon="edit" label={t('Modifier', 'Edit')} onPress={() => router.push({ pathname: '/property-form', params: { id } })} />}
+        action={
+          <View style={{ flexDirection: 'row', gap: space.sm }}>
+            <Button
+              compact
+              tone="quiet"
+              icon="chart"
+              label={t('Bilan', 'Report')}
+              onPress={() => {
+                useStore.getState().setProperty(id);
+                router.push('/reports');
+              }}
+            />
+            <Button compact tone="quiet" icon="edit" label={t('Modifier', 'Edit')} onPress={() => router.push({ pathname: '/property-form', params: { id } })} />
+          </View>
+        }
       />
 
       <Cols>
