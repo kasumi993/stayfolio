@@ -17,8 +17,8 @@ alter table public.report_requests enable row level security;
 -- No policy on purpose: only the service role (the edge function) reads it.
 revoke all on public.report_requests from anon, authenticated;
 
-create extension if not exists pg_net;
-create extension if not exists pg_cron;
+create extension if not exists pg_net with schema extensions;
+create extension if not exists pg_cron with schema pg_catalog;
 
 -- Writes a request row and calls the function with its id.
 create function public.request_monthly_reports(p_member uuid default null, p_dry_run boolean default false, p_month text default null)

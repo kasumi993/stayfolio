@@ -53,11 +53,18 @@ intentional: `get_shared_statement`, `member_load`, `member_save` and
 `bump_ai_usage`, `delete_account` and `rotate_member_token` (signed-in users,
 acting on their own rows).
 
-Member links: `supabase/tests/members_security.sql` runs 18 checks as a link
-holder (viewer and editor) against two throw-away users and cleans up after
-itself. All pass: pages and edit rights hold, private expenses stay invisible
-and untouchable, another owner's rows are out of reach, a wrong or short token
-returns nothing, `anon` still cannot read any table or rotate a link.
+Member links and recaps: `supabase/tests/members_security.sql` runs 25 checks
+as a link holder (viewer and editor) and as another signed-in owner, against
+throw-away users, and cleans up after itself. All pass on project
+`qizxtnojgxhkqasavghb` (23 November 2026): pages and edit rights hold, private
+expenses stay invisible and untouchable, another owner's rows are out of
+reach, a wrong or short token returns nothing, `anon` still cannot read any
+table or rotate a link, and nobody but the database can read recap requests
+or trigger a recap (another owner cannot send one to my member).
+
+The recap function was also checked end to end with a dry run on throw-away
+data (figures right, private expense left out), then called again with the
+same request and with an invented one: both refused (403).
 
 ## What a member link shows
 

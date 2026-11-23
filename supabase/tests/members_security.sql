@@ -3,7 +3,7 @@
 -- check as `anon` (a link holder), prints one row per check, then deletes
 -- everything it created. Every `ok` must be true.
 create temp table if not exists t_results (n int, test text, ok boolean, detail text);
-grant all on t_results to anon;
+grant all on t_results to anon, authenticated;
 truncate t_results;
 do $$
 declare
@@ -11,7 +11,7 @@ declare
   pa uuid := gen_random_uuid(); pb uuid := gen_random_uuid();
   me uuid := gen_random_uuid(); partner uuid := gen_random_uuid(); pbme uuid := gen_random_uuid();
   xpriv uuid := gen_random_uuid(); xprop uuid := gen_random_uuid(); xother uuid := gen_random_uuid();
-  tv text; te text; r jsonb; ok boolean;
+  tv text; te text; r jsonb; ok boolean; mid uuid;
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
   values (a, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test-a-' || a || '@example.invalid', '', now(), now(), '{}', '{}'),
@@ -25,6 +25,7 @@ begin
     (xpriv, a, pa, '2026-11-03', '2026-11', 5000, 'private'), (xprop, a, pa, '2026-11-04', '2026-11', 20000, 'property'), (xother, b, pb, '2026-11-04', '2026-11', 7000, 'property');
   insert into public.members (owner_id, property_id, name, can_edit, pages) values (a, pa, 'Viewer', false, '{income}') returning token into tv;
   insert into public.members (owner_id, property_id, name, can_edit, pages) values (a, pa, 'Editor', true, '{expenses,invoices}') returning token into te;
+  insert into public.members (owner_id, property_id, name, email, monthly_report) values (a, pa, 'Mailer', 'mailer@example.invalid', true) returning id into mid;
 
   set local role anon;
   r := public.member_load(tv);
@@ -58,7 +59,24 @@ begin
   insert into t_results values (15, 'anon cannot read expenses directly', ok, null);
   begin perform public.rotate_member_token(gen_random_uuid()); ok := false; exception when others then ok := true; end;
   insert into t_results values (16, 'anon cannot rotate a link', ok, null);
+  begin perform * from public.report_requests; ok := false; exception when others then ok := true; end;
+  insert into t_results values (19, 'anon cannot read recap requests', ok, null);
+  begin perform public.request_monthly_reports(); ok := false; exception when others then ok := true; end;
+  insert into t_results values (20, 'anon cannot trigger the recaps', ok, null);
+  begin perform public.send_member_report(mid); ok := false; exception when others then ok := true; end;
+  insert into t_results values (21, 'anon cannot ask for a recap', ok, null);
+  -- Signed in as owner B: owner A's member stays out of reach.
   reset role;
+  perform set_config('request.jwt.claims', jsonb_build_object('sub', b, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin perform public.send_member_report(mid); ok := false; exception when others then ok := true; end;
+  insert into t_results values (22, 'another owner cannot send my member a recap', ok, null);
+  begin perform * from public.report_requests; ok := false; exception when others then ok := true; end;
+  insert into t_results values (23, 'signed-in users cannot read recap requests', ok, null);
+  begin perform public.request_monthly_reports(mid, true); ok := false; exception when others then ok := true; end;
+  insert into t_results values (24, 'signed-in users cannot trigger recaps directly', ok, null);
+  reset role;
+  insert into t_results values (25, 'no recap request was written', not exists (select 1 from public.report_requests where member_id = mid), null);
   insert into t_results values (12, 'delete of a private expense does nothing', (select amount from public.expenses where id = xpriv) = 5000, null);
   insert into t_results values (17, 'expense of owner B untouched', (select amount from public.expenses where id = xother) = 7000, null);
   delete from auth.users where id in (a, b);
