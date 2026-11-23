@@ -16,9 +16,9 @@ import { useAccess, useMoney, usePartiesOf } from '@/features/hooks';
 import { shareUrl } from '@/features/links';
 import { PageHeader } from '@/features/PageHeader';
 import { categoryLabel, dayLabel, de, durationLabel, kindLabel, monthLabel, shareLabel, useLocale, useT } from '@/i18n';
-import { Button, Empty, Row, SectionTitle, TextLink } from '@/ui/controls';
+import { Button, Choice, Empty, Row, SectionTitle, TextLink } from '@/ui/controls';
 import { MembersSection } from '@/features/Members';
-import { Block, Card, Cols, Screen } from '@/ui/layout';
+import { Block, Card, Screen } from '@/ui/layout';
 import { T } from '@/ui/Text';
 import { color, pigmentOf, space } from '@/ui/theme';
 
@@ -31,6 +31,7 @@ export default function PropertyScreen() {
   const property = data.properties.find((p) => p.id === id);
   const parties = usePartiesOf(id);
   const [copied, setCopied] = useState<string | null>(null);
+  const [tab, setTab] = useState<'cash' | 'members' | 'rules' | 'more'>('cash');
   const bal = useMemo(() => balances(data, id), [data, id]);
   const pb = useMemo(() => payback(data, id, currentMonth()), [data, id]);
   const cash = useMemo(() => treasury(data, id), [data, id]);
@@ -95,8 +96,23 @@ export default function PropertyScreen() {
         }
       />
 
-      <Cols>
-        <View>
+      {owner ? (
+        <View style={{ marginBottom: space.md }}>
+          <Choice
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'cash', label: t('Caisse', 'Cash') },
+              { value: 'members', label: t('Membres', 'Members') },
+              { value: 'rules', label: t('Règles', 'Rules') },
+              { value: 'more', label: t('Plus', 'More') },
+            ]}
+          />
+        </View>
+      ) : null}
+
+      <View style={{ maxWidth: 720 }}>
+        {tab !== 'cash' && owner ? null : <View>
           {others.length ? (
             <>
               {together ? (
@@ -129,12 +145,12 @@ export default function PropertyScreen() {
               {owner ? <T color={color.inkSoft}>{t('Tout le résultat me revient. Pour ajouter un associé ou un propriétaire, modifie les règles.', 'The whole result is mine. To add a partner or an owner, edit the rules.')}</T> : null}
             </Card>
           )}
-        </View>
+        </View>}
 
-        {!owner ? <View /> : (
+        {!owner ? null : (
         <View>
-          <MembersSection property={property} />
-          {property.deposit || property.notes ? (
+          {tab === 'members' ? <MembersSection property={property} /> : null}
+          {tab === 'more' && (property.deposit || property.notes) ? (
             <>
               <SectionTitle action={<TextLink label={t('Modifier', 'Edit')} onPress={() => router.push({ pathname: '/property-form', params: { id } })} />}>{t('À savoir', 'Good to know')}</SectionTitle>
               <Block>
@@ -155,6 +171,7 @@ export default function PropertyScreen() {
             </>
           ) : null}
 
+          {tab !== 'rules' ? null : <>
           <SectionTitle action={<TextLink label={t('Modifier', 'Edit')} onPress={() => router.push({ pathname: '/rules', params: { property: id } })} />}>{t('Règles de calcul', 'Calculation rules')}</SectionTitle>
           <Block>
             {rule?.commission_rate ? <Row title={t('Ma commission', 'My commission')} subtitle={t('Prélevée sur chaque réservation, avant partage', 'Taken from each booking, before sharing')} value={formatPercent(rule.commission_rate)} /> : null}
@@ -186,8 +203,9 @@ export default function PropertyScreen() {
           ) : (
             <T color={color.inkSoft}>{t('Loyer, internet, abonnement… Saisis-les une fois, ils s’ajoutent seuls chaque mois.', 'Rent, internet, subscriptions… Enter them once and they add themselves every month.')}</T>
           )}
+          </>}
 
-          {others.length ? (
+          {tab === 'more' && others.length ? (
             <>
               <SectionTitle>{t('Relevés partagés', 'Shared statements')}</SectionTitle>
               <T color={color.inkSoft} style={{ marginBottom: space.md }}>
@@ -218,7 +236,7 @@ export default function PropertyScreen() {
           ) : null}
         </View>
         )}
-      </Cols>
+      </View>
     </Screen>
   );
 }

@@ -3,7 +3,7 @@
  * record an expense or an income, the latest entries, then the figures.
  */
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { type Statement, monthStatement, occupancy, ruleFor, series } from '@/core/calc';
@@ -16,7 +16,7 @@ import { useAccess, useMoney, useSelection } from '@/features/hooks';
 import { PageHeader } from '@/features/PageHeader';
 import { type Translate, categoryLabel, dayLabel, monthLabel, monthShort, shareLabel, useLocale, useT } from '@/i18n';
 import { Bars, Breakdown, Legend, Progress, Ring, Tile, Tiles } from '@/ui/charts';
-import { Button, Dot, Empty, Notice, Row, SectionTitle, Tag, TextLink } from '@/ui/controls';
+import { Button, Choice, Dot, Empty, Notice, Row, SectionTitle, Tag, TextLink } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
 import { Block, Card, Cols, Screen, useWide } from '@/ui/layout';
 import { T } from '@/ui/Text';
@@ -31,6 +31,7 @@ export default function MonthScreen() {
   const data = useData();
   const month = useStore((s) => s.month);
   const setMonth = useStore((s) => s.setMonth);
+  const [view, setView] = useState<'figures' | 'entries' | 'charts'>('figures');
   const { property, active } = useSelection();
   const { owner, canEdit, sees } = useAccess();
   const id = property?.id ?? null;
@@ -75,6 +76,24 @@ export default function MonthScreen() {
         {figures ? <Summary s={s} property={property} /> : <MemberIntro />}
         <View style={{ marginTop: wide ? 0 : space.xl, gap: space.md }}>
           {canEdit ? <QuickAdd /> : null}
+        </View>
+      </Cols>
+
+      {/* One view at a time: the page stays light. */}
+      <View style={{ marginTop: space.xl, marginBottom: space.md }}>
+        <Choice
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'figures', label: t('Chiffres', 'Figures') },
+            ...(sees('income') || sees('expenses') ? [{ value: 'entries' as const, label: t('Saisies', 'Entries') }] : []),
+            ...(figures ? [{ value: 'charts' as const, label: t('Graphiques', 'Charts') }] : []),
+          ]}
+        />
+      </View>
+
+      {view === 'figures' ? (
+        <View style={{ gap: space.md }}>
           <Tiles wide={false}>
             {[
               !sees('income') ? null : <Tile key="in" label={t('Revenus', 'Income')} value={money(s.revenue)} note={t(`${bookings.length} versement${bookings.length > 1 ? 's' : ''}`, `${bookings.length} payout${bookings.length > 1 ? 's' : ''}`)} tint={color.tintIncome} />,
@@ -103,18 +122,15 @@ export default function MonthScreen() {
               onPress={() => router.push({ pathname: '/property', params: { id: property.id } })}
             />
           ) : null}
-        </View>
-      </Cols>
-
-      {figures && insights.length ? (
-        <View style={{ gap: space.sm, marginTop: space.xl }}>
-          {insights.map((ins, i) => (
-            <Notice key={i} icon={ins.kind === 'rent_gap' ? 'month' : ins.kind === 'spike' ? 'chart' : 'alert'} text={capitalize(insightText(ins, byId.get(ins.property_id), !property, money, locale, t))} />
-          ))}
+          {figures && insights.length ? (
+            <Notice icon={insights[0].kind === 'rent_gap' ? 'month' : insights[0].kind === 'spike' ? 'chart' : 'alert'} text={capitalize(insightText(insights[0], byId.get(insights[0].property_id), !property, money, locale, t))} />
+          ) : null}
+          {!figures ? null : property ? <Split s={s} property={property} /> : <Portfolio />}
         </View>
       ) : null}
 
-      <Cols ratio={[3, 2]}>
+
+      {view === 'entries' ? (
         <View>
           <SectionTitle action={sees('income') || sees('expenses') ? <TextLink label={t('Tout voir', 'See all')} onPress={() => router.push('/entries')} /> : undefined}>{t('Dernières saisies', 'Latest entries')}</SectionTitle>
           {latest.length ? (
@@ -131,10 +147,9 @@ export default function MonthScreen() {
             <T color={color.inkSoft}>{t('Rien d’enregistré pour l’instant.', 'Nothing recorded yet.')}</T>
           )}
         </View>
-        {!figures ? <View /> : property ? <Split s={s} property={property} /> : <Portfolio />}
-      </Cols>
+      ) : null}
 
-      {figures ? (
+      {figures && view === 'charts' ? (
       <Cols ratio={[3, 2]}>
         <View>
           <SectionTitle action={<TextLink label={t('Bilan de l’année', 'Yearly report')} onPress={() => router.push('/reports')} />}>{t('Les six derniers mois', 'The last six months')}</SectionTitle>
@@ -219,7 +234,7 @@ function Summary({ s, property }: { s: Statement; property: Property | null }) {
         {owner && managed && s.commission ? <Tag label={t(`dont ${money(s.commission)} de commission`, `incl. ${money(s.commission)} commission`)} /> : null}
         {s.setup ? <Tag label={t(`Hors mise en place : ${money(s.setup)}`, `Set-up costs aside: ${money(s.setup)}`)} /> : null}
       </View>
-      {property && (s.rent > 0 || s.expenses > 0) ? (
+      {false && property && (s.rent > 0 || s.expenses > 0) ? (
         <View style={{ gap: space.lg, marginTop: space.xl }}>
           {s.rent > 0 ? (
             <Progress
