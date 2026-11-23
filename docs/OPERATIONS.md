@@ -98,7 +98,8 @@ bundled with `npx esbuild <fn>/index.ts --bundle --format=esm --platform=neutral
 
 ## Emails
 
-Two kinds, both going out through Brevo (account "Miracute", sender
+Two kinds, both going out through Brevo (account "Miracute", no footer
+with the account address: transactional mail does not need one; sender
 hello@miracute.com shown as "Stayfolio"; domain miracute.com authenticated;
 free plan: 300 emails a day, with Brevo's small "Sent with Brevo" mark).
 
